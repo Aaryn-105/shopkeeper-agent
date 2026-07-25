@@ -1,0 +1,61 @@
+﻿app:
+  name: shopkeeper-agent
+  version: 1.0.0
+  env: local
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  meta_db: meta
+  dw_db: dw
+  pool_size: 5
+  pool_recycle: 1800
+
+embedding:
+  model_path: D:\Quantum Technology Training\智能体\bge-st
+  dim: 512
+  batch_size: 16
+
+faiss:
+  index_dir: ./data/faiss
+  top_k_column: 20
+  top_k_metric: 10
+
+fts5:
+  db_path: ./data/fts5/fulltext.db
+  top_k_value: 30
+
+es:
+  url: http://127.0.0.1:9200
+  enabled: false
+
+llm:
+  api_base: ''
+  api_key: ''
+  model: ''
+  temperature: 0.0
+  max_tokens: 2048
+
+cache:
+  ttl_seconds: 3600
+  similarity_threshold: 0.92
+
+cors:
+  allow_origins:
+    - "*"
+
+logging:
+  dir: ./logs
+  level: INFO
+  retention_days: 30
+
+request:
+  id_header: X-Request-ID
+
+ask:
+  max_query_length: 500
+
+recall:
+  column_top_k: 20
+  metric_top_k: 10
+  value_top_k: 30

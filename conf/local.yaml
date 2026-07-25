@@ -1,0 +1,12 @@
+﻿app:
+  env: local
+mysql:
+  admin_user: root
+  admin_password: ''
+  ro_user: readonly
+  ro_password: ''
+cors:
+  allow_origins:
+    - "*"
+logging:
+  level: DEBUG
