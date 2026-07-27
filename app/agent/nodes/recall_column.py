@@ -31,7 +31,7 @@ MAX_EXTENDED_KEYWORDS: int = 6
 TOPK_PER_VECTOR: int = 20
 FINAL_CAP: int = 20
 
-_PROMPT_PATH = Path(__file__).resolve().parents[2] / "app" / "prompt" / "extend_keywords_for_column_recall.prompt"
+_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompt" / "extend_keywords_for_column_recall.prompt"
 _FALLBACK_PROMPT = (
     "\u6269\u5c55\u6700\u591a 6 \u4e2a\u7528\u4e8e\u6570\u636e\u5e93\u5b57\u6bb5\u53ec\u56de\u7684\u5173\u952e\u8bcd\u3002\n"
     "\u7528\u6237\u95ee\u9898\uff1a{query}\n"

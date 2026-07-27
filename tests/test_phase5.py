@@ -180,7 +180,7 @@ def test_recall_metric_node_uses_real_index():
         "keywords": ["销售", "总额"],
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
-    out = recall_metric(state, cfg_obj)
+    out = asyncio.run(recall_metric(state, cfg_obj))
     metrics = out.get("retrieved_metrics") or []
     assert len(metrics) > 0, "recall_metric returned no hits against real index"
     assert any("GMV" in (m.get("id") or "") for m in metrics), f"hits={metrics}"

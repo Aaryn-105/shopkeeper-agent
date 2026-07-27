@@ -219,7 +219,7 @@ def test_recall_metric_node_returns_metrics():
         "keywords": ["GMV"],
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
-    out = recall_metric(state, cfg_obj)
+    out = asyncio.run(recall_metric(state, cfg_obj))
     assert "retrieved_metrics" in out
     assert any(m.get("id") == "GMV" for m in out["retrieved_metrics"])
 
