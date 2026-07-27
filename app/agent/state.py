@@ -49,4 +49,8 @@ class AgentState(TypedDict, total=False):
     node_history: Annotated[list[dict[str, Any]], operator.add]
     error: Optional[str]
     cache_hit: bool
+    # V1.0 phase 6.9: dedicated flag for the SQL-generation cache hit
+    cache_hit_sql: bool
+    # V1.0 phase 6.9: pending stream events the SSE layer can drain
+    pending_stream_events: list[dict[str, Any]]
     started_at: float
