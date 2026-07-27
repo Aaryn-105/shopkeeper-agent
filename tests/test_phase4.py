@@ -269,7 +269,12 @@ def test_add_extra_context_node_records_db_version():
     cfg_obj = {"configurable": {"runtime": runtime}}
     out = add_extra_context(state, cfg_obj)
     ctx = out["extra_context"]
-    assert ctx["db_type"] == "mysql"
+    # V1.0 phase 6.8: SRS canonical db_type label is "MySQL" (capitalised).
+    assert ctx["db_type"] == "MySQL"
+    # V1.0 phase 6.8 also adds current_time + today_weekday.
+    assert "current_time" in ctx
+    assert "today_weekday" in ctx
+    # legacy "now" alias is still present
     assert "now" in ctx
     assert "error" not in ctx["db_version"]
 
