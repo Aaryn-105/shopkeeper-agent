@@ -59,3 +59,31 @@ recall:
   column_top_k: 20
   metric_top_k: 10
   value_top_k: 30
+samples:
+  welcome_message: "你好，我是电商问数助手，可以帮你用自然语言查询销售、用户、商品等数据。"
+  usage_tips:
+    - "用自然语言提问，例如：上个月华东地区 GMV 是多少？"
+    - "系统会自动从数仓中检索相关字段、指标和维度值。"
+    - "查询过程会以步骤形式实时呈现，方便跟踪与核对。"
+    - "支持筛选、排序、聚合、分组等常见分析场景。"
+  sample_questions:
+    - id: gmv_by_region
+      category: "区域销售"
+      question: "上个月华东地区的 GMV 是多少？"
+      description: "按区域汇总销售额"
+    - id: aov_by_category
+      category: "商品分析"
+      question: "各品类的客单价 (AOV) 如何？"
+      description: "按品类聚合订单均价"
+    - id: order_count_trend
+      category: "趋势分析"
+      question: "最近 7 天的订单量趋势是怎么样的？"
+      description: "按日统计订单数"
+    - id: top_products
+      category: "商品排行"
+      question: "上周销量 Top 10 的商品是哪些？"
+      description: "按销量降序取前 10"
+    - id: new_customer_ratio
+      category: "用户分析"
+      question: "新客占比是多少？"
+      description: "计算新客订单数 / 总订单数"

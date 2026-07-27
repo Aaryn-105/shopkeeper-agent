@@ -7,6 +7,7 @@ from app.core.lifespan import lifespan, install_request_id_middleware
 from app.api.routes.health import router as health_router
 from app.api.routes.ask import router as ask_router
 from app.api.routes.metadata import router as metadata_router
+from app.api.routes.config_api import router as config_router
 
 
 app = FastAPI(
@@ -27,6 +28,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(ask_router)
 app.include_router(metadata_router)
+app.include_router(config_router)
 
 
 @app.get("/")
