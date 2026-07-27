@@ -4,6 +4,20 @@ from langchain_core.runnables import RunnableConfig
 
 from app.agent.nodes._helpers import get_runtime, history_append, log_node, now_ms
 from app.agent.state import AgentState
+from app.core.config import cfg
+
+
+def _vector_or_text_search(runtime, query: str, top_k: int):
+    """Try vector search first if FAISS has vectors; else fall back to text recall."""
+    faiss = runtime.faiss
+    try:
+        coll = faiss.metric_info
+        if coll.is_indexed and runtime.embedding is not None:
+            vec = runtime.embedding.encode([query])[0]
+            return coll.search(vec, top_k)
+    except Exception:
+        pass
+    return faiss.recall_metric(query, top_k)
 
 
 def recall_metric(state: AgentState, config: RunnableConfig | None = None) -> dict:
@@ -19,7 +33,10 @@ def recall_metric(state: AgentState, config: RunnableConfig | None = None) -> di
         for text in [query, " ".join(keywords)]:
             if not text.strip():
                 continue
-            for h in runtime.faiss.recall_metric(text):
+            for h in _vector_or_text_search(
+                runtime, text,
+                int(cfg.recall.metric_top_k),
+            ):
                 if h.get("id") in seen:
                     continue
                 seen.add(h.get("id"))

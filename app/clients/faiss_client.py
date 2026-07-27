@@ -57,9 +57,22 @@ class _Collection:
             import faiss  # type: ignore
             faiss.write_index(self._index, str(self.index_path))
             with open(self.payload_path, "w", encoding="utf-8") as f:
-                json.dump(self._payloads, f, ensure_ascii=False)
+                json.dump(self._payloads, f, ensure_ascii=False, indent=2)
         except Exception:
             pass
+
+    @property
+    def is_indexed(self) -> bool:
+        """True iff FAISS has vectors and they match the current payload count.
+
+        This is what recall nodes check before calling .search() so they can
+        choose the vector path over the text-fallback path.
+        """
+        return (
+            self._index is not None
+            and self._index.ntotal > 0
+            and len(self._payloads) == int(self._index.ntotal)
+        )
 
     def add(self, vectors: list[list[float]], payloads: list[dict[str, Any]]) -> None:
         if not vectors:

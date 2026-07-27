@@ -1,15 +1,28 @@
 """Node: recall_column (4.2.2).
 
-Calls FAISSStore.recall_column(query). When the FAISS index has payloads from a
-prior build_knowledge_index run, this returns scored hits. When payloads are
-present but vectors are absent we still get text-recall results (substring
-match on name/description/alias).
+Calls FAISSStore.recall_column(query). When the FAISS index has vectors (built
+by scripts/build_knowledge_index.py), this returns vector-search hits.
+Otherwise falls back to text-recall and finally to meta.column_info.
 """
 from __future__ import annotations
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.nodes._helpers import get_runtime, history_append, log_node, now_ms
 from app.agent.state import AgentState
+from app.core.config import cfg
+
+
+def _vector_or_text_search(runtime, query: str, top_k: int):
+    """Try vector search first if FAISS has vectors; else fall back to text recall."""
+    faiss = runtime.faiss
+    try:
+        coll = faiss.column_info
+        if coll.is_indexed and runtime.embedding is not None:
+            vec = runtime.embedding.encode([query])[0]
+            return coll.search(vec, top_k)
+    except Exception:
+        pass
+    return faiss.recall_column(query, top_k)
 
 
 def recall_column(state: AgentState, config: RunnableConfig | None = None) -> dict:
@@ -21,12 +34,14 @@ def recall_column(state: AgentState, config: RunnableConfig | None = None) -> di
 
     hits: list[dict] = []
     if runtime is not None and runtime.faiss is not None:
-        # query + keyword expansion, then take union
         seen = set()
         for text in [query, " ".join(keywords)]:
             if not text.strip():
                 continue
-            for h in runtime.faiss.recall_column(text):
+            for h in _vector_or_text_search(
+                runtime, text,
+                int(cfg.recall.column_top_k),
+            ):
                 if h.get("id") in seen:
                     continue
                 seen.add(h.get("id"))
