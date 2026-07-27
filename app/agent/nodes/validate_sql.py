@@ -36,6 +36,7 @@ def validate_sql(state: AgentState, config: RunnableConfig | None = None) -> dic
 
     if runtime is not None:
         runtime.metrics.record_node_latency("validate_sql", now_ms() - t0)
+        runtime.metrics.record_sql_validated(corrected=not ok)
         runtime.nodes_called += 1
     log_node("validate_sql", request_id, "ok" if ok else "fail", msg=message)
     return {

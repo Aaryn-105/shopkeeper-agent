@@ -152,6 +152,7 @@ def install_request_id_middleware(app: FastAPI) -> None:
             metrics = getattr(app.state, "metrics", None)
             if metrics is not None:
                 metrics.record_request()
+                metrics.record_request_outcome(success=response.status_code < 400, duration_ms=duration_ms)
                 metrics.record_node_latency(f"http:{request.url.path}", duration_ms)
             response.headers[cfg.request.id_header] = get_request_id()
             return response

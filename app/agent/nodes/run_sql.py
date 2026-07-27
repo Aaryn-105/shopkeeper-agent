@@ -22,6 +22,7 @@ async def run_sql(state: AgentState, config: RunnableConfig | None = None) -> di
 
     if runtime is not None:
         runtime.metrics.record_node_latency("run_sql", now_ms() - t0)
+        runtime.metrics.record_sql_executed(success=error is None)
         runtime.nodes_called += 1
     log_node("run_sql", request_id, "ok" if error is None else "fail",
              rows=result.get("row_count", 0), error=error)

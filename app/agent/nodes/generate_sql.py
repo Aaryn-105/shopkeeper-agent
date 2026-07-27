@@ -36,6 +36,7 @@ async def generate_sql(state: AgentState, config: RunnableConfig | None = None) 
     elapsed = now_ms() - t0
     if runtime is not None:
         runtime.metrics.record_node_latency("generate_sql", elapsed)
+        runtime.metrics.record_sql_generated()
         runtime.nodes_called += 1
         runtime.metrics.record_llm_call(LLMCallStat(
             node_name="generate_sql",
