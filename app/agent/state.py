@@ -23,6 +23,9 @@ class AgentState(TypedDict, total=False):
 
     # merge_retrieved_info
     merged_table_infos: dict[str, dict[str, Any]]
+    # SRS canonical 4.2.5 outputs (new in phase 6.5)
+    table_infos: dict[str, dict[str, Any]]
+    metric_infos: list[dict[str, Any]]
 
     # filter_table / filter_metric
     filtered_table_infos: dict[str, dict[str, Any]]
