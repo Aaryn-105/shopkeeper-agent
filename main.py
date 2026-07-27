@@ -9,6 +9,7 @@ from app.api.routes.ask import router as ask_router
 from app.api.routes.metadata import router as metadata_router
 from app.api.routes.config_api import router as config_router
 from app.api.routes.stats import router as stats_router
+from app.api.routes.history import router as history_router
 
 
 app = FastAPI(
@@ -31,6 +32,7 @@ app.include_router(ask_router)
 app.include_router(metadata_router)
 app.include_router(config_router)
 app.include_router(stats_router)
+app.include_router(history_router)
 
 
 @app.get("/")

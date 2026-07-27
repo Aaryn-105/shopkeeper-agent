@@ -97,6 +97,23 @@ META_DDL: list[str] = [
         KEY idx_llm_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
+"""
+    CREATE TABLE IF NOT EXISTS ask_history (
+        id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+        request_id      VARCHAR(64) NOT NULL,
+        session_id      VARCHAR(64),
+        query           TEXT NOT NULL,
+        sql_text        MEDIUMTEXT,
+        sql_corrected   TINYINT(1) NOT NULL DEFAULT 0,
+        status          VARCHAR(16) NOT NULL,
+        error_message   TEXT,
+        duration_ms     INT NOT NULL DEFAULT 0,
+        row_count       INT NOT NULL DEFAULT 0,
+        created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_ask_history_session (session_id, created_at),
+        KEY idx_ask_history_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """,
 ]
 
 DW_DDL: list[str] = [
@@ -210,7 +227,7 @@ def _ensure_readonly_user(cur) -> dict[str, str]:
 
     # GRANT is idempotent: re-issuing the same grant is a no-op.
     cur.execute(f"GRANT SELECT ON `{dw_db}`.* TO '{ro_user}'@'%'")
-    for tbl in ("table_info", "column_info", "metric_info", "column_metric"):
+    for tbl in ("table_info", "column_info", "metric_info", "column_metric", "ask_history"):
         cur.execute(
             f"GRANT SELECT ON `{meta_db}`.`{tbl}` TO '{ro_user}'@'%'"
         )

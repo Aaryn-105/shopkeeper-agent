@@ -22,6 +22,7 @@ from app.core.config import cfg
 from app.core.logger import logger
 from app.core.metrics import get_metrics
 from app.core.request_context import get_request_id, new_request_id
+from app.clients.history_client import HistoryWriter
 
 
 router = APIRouter(prefix="/api", tags=["ask"])
@@ -61,6 +62,7 @@ async def ask(req: AskRequest):
         else new_request_id()
     )
     metrics = get_metrics()
+    session_id = req.session_id
 
     async def event_gen():
         # exact-match cache lookup
@@ -71,6 +73,18 @@ async def ask(req: AskRequest):
             metrics.record_cache(hit=True)
             yield _sse("progress", {"node": "cache", "status": "ok", "message": "命中缓存"})
             yield _sse("result", cached["result"])
+            cached_result = cached.get("result") or {}
+            HistoryWriter.record(
+                request_id=request_id,
+                session_id=session_id,
+                query=query,
+                sql_text=None,
+                status="cache_hit",
+                error_message=None,
+                duration_ms=0,
+                row_count=int(cached_result.get("row_count", 0) or 0),
+                sql_corrected=False,
+            )
             yield _sse("done", {
                 "request_id": request_id,
                 "duration_ms": 0,
@@ -159,6 +173,25 @@ async def ask(req: AskRequest):
             _shared_cache.put(query, {"result": final_state["result"]})
 
         duration_ms = int((time.perf_counter() - t_total) * 1000)
+        final_error = final_state.get("error")
+        final_result = final_state.get("result") or {}
+        if final_error:
+            hist_status = "error"
+        elif final_result:
+            hist_status = "ok"
+        else:
+            hist_status = "error"
+        HistoryWriter.record(
+            request_id=request_id,
+            session_id=session_id,
+            query=query,
+            sql_text=final_state.get("sql") or None,
+            status=hist_status,
+            error_message=final_error,
+            duration_ms=duration_ms,
+            row_count=int(final_result.get("row_count", 0) or 0),
+            sql_corrected=bool(final_state.get("sql_corrected", False)),
+        )
         yield _sse("done", {
             "request_id": request_id,
             "duration_ms": duration_ms,
