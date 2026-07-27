@@ -127,15 +127,51 @@ def test_metadata_client_returns_expected_counts():
 # ---------- per-node tests ----------
 
 def _make_runtime() -> AgentRuntime:
+    """Build an AgentRuntime with the V1.0 FAISS shape used by phase 6.2 nodes.
+
+    The fake FAISS exposes ``column_info`` and ``metric_info`` collections that
+    return a tiny fixture on ``.search()``.  This is enough for unit tests to
+    verify node plumbing without spinning up the real FAISS index.
+    """
+
+    class _FakeColl:
+        is_indexed = True
+
+        def search(self, vec, top_k):  # noqa: ARG002
+            return [{
+                "id": "fact_order.order_amount",
+                "name": "order_amount",
+                "type": "decimal(10,2)",
+                "role": "measure",
+                "description": "order amount total",
+                "table_id": "fact_order",
+                "_score": 0.91,
+            }]
+
+    class _FakeMetricColl:
+        is_indexed = True
+
+        def search(self, vec, top_k):  # noqa: ARG002
+            return [{
+                "id": "GMV",
+                "name": "GMV",
+                "type": "decimal(20,2)",
+                "description": "gross merchandise value",
+                "table_id": "fact_order",
+                "_score": 0.88,
+            }]
+
+    fake_faiss = type("F", (), {
+        "column_info": _FakeColl(),
+        "metric_info": _FakeMetricColl(),
+    })()
+
     runtime = AgentRuntime(
         request_id="test-rid",
         metrics=get_metrics(),
         llm=LLMClient(),
         embedding=EmbeddingClient(),
-        faiss=type("F", (), {
-            "recall_column": lambda *a, **k: [],
-            "recall_metric": lambda *a, **k: [],
-        })(),
+        faiss=fake_faiss,
         fts5=FTS5Store(),
         mysql_dw=None,
         cache=None,
@@ -197,7 +233,7 @@ def test_recall_column_node_returns_columns():
         "keywords": ["order_amount", "amount"],
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
-    out = recall_column(state, cfg_obj)
+    out = asyncio.run(recall_column(state, cfg_obj))
     assert "retrieved_columns" in out
     assert any(c.get("table_id") == "fact_order" for c in out["retrieved_columns"])
 

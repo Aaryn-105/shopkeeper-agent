@@ -145,7 +145,7 @@ def test_recall_column_node_uses_real_index():
         "keywords": ["订单", "金额"],
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
-    out = recall_column(state, cfg_obj)
+    out = asyncio.run(recall_column(state, cfg_obj))
     cols = out.get("retrieved_columns") or []
     assert len(cols) > 0, "recall_column returned no hits against real index"
     assert any("order_amount" in (c.get("id") or "") for c in cols), f"hits={cols}"
