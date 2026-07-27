@@ -69,6 +69,12 @@ class MySQLClient:
             if truncated:
                 rows = rows[:max_rows]
             columns = list(result.keys())
+            # Defensive: when SQL has no aliases (e.g. mock LLM emitted
+            # "SELECT COUNT(*) FROM fact_order") SQLAlchemy may return empty
+            # keys. Synthesize col_0..col_N so the UI always has something to
+            # render. This is a column-name fallback, not a row fallback.
+            if not columns and rows:
+                columns = [f"col_{i}" for i in range(len(rows[0]))]
             return {
                 "columns": columns,
                 "rows": [list(r) for r in rows],
