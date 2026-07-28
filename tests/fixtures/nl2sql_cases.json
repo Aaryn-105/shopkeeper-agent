@@ -1,0 +1,1017 @@
+[
+  {
+    "id": "A01_gmv_huadong",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "华东地区的 GMV 是多少？",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id WHERE r.province IN ('上海', '江苏', '浙江')",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region",
+      "province"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A02_gmv_huabei",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "华北的总销售额是多少？",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id WHERE r.province IN ('北京', '天津', '河北')",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A03_gmv_huanan",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "华南 GMV 多少",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id WHERE r.province IN ('广东', '广西', '海南')",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A04_gmv_huazhong",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "华中地区的销售额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id WHERE r.province IN ('湖北', '湖南', '河南')",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A05_order_cnt_huadong",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "华东有多少订单？",
+    "expected_sql": "SELECT COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id WHERE r.province IN ('上海', '江苏', '浙江')",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "cnt"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A06_order_cnt_total",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "总共多少订单？",
+    "expected_sql": "SELECT COUNT(order_id) AS cnt FROM fact_order",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order"
+    ],
+    "expected_columns": [
+      "cnt"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A07_aov_huadong",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "华东地区的客单价 (AOV) 是多少？",
+    "expected_sql": "SELECT AVG(f.order_amount) AS aov FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id WHERE r.province IN ('上海', '江苏', '浙江')",
+    "must_contain_tokens": [
+      "AVG",
+      "order_amount",
+      "fact_order",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "aov"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A08_aov_total",
+    "category": "区域销售",
+    "difficulty": "easy",
+    "question": "全平台的客单价？",
+    "expected_sql": "SELECT AVG(order_amount) AS aov FROM fact_order",
+    "must_contain_tokens": [
+      "AVG",
+      "order_amount"
+    ],
+    "expected_columns": [
+      "aov"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A09_gmv_phone",
+    "category": "商品分析",
+    "difficulty": "easy",
+    "question": "手机品类的 GMV 是多少？",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id WHERE p.category = '手机数码'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "category"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A10_gmv_computer",
+    "category": "商品分析",
+    "difficulty": "easy",
+    "question": "电脑办公的销售额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id WHERE p.category = '电脑办公'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "category"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A11_gmv_jiaju",
+    "category": "商品分析",
+    "difficulty": "easy",
+    "question": "家用电器品类 GMV",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id WHERE p.category = '家用电器'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "category"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A12_gmv_clothes",
+    "category": "商品分析",
+    "difficulty": "easy",
+    "question": "服饰箱包销售总额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id WHERE p.category = '饰服鞋包'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "category"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A13_order_cnt_phone",
+    "category": "商品分析",
+    "difficulty": "easy",
+    "question": "手机品类的订单数量？",
+    "expected_sql": "SELECT COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id WHERE p.category = '手机数码'",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_product",
+      "category"
+    ],
+    "expected_columns": [
+      "cnt"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A14_gmv_gold_member",
+    "category": "用户分析",
+    "difficulty": "easy",
+    "question": "黄金会员贡献的 GMV？",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id WHERE c.member_level = '黄金会员'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "member_level"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 0,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A15_gmv_platinum",
+    "category": "用户分析",
+    "difficulty": "easy",
+    "question": "铂金会员的销售总额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id WHERE c.member_level = '铂金会员'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "member_level"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 0,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A16_gmv_diamond",
+    "category": "用户分析",
+    "difficulty": "easy",
+    "question": "钻石会员 GMV",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id WHERE c.member_level = '钻石会员'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "member_level"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A17_gmv_normal",
+    "category": "用户分析",
+    "difficulty": "easy",
+    "question": "普通会员的销售额？",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id WHERE c.member_level = '普通会员'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "member_level"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A18_aov_diamond",
+    "category": "用户分析",
+    "difficulty": "easy",
+    "question": "钻石会员的客单价？",
+    "expected_sql": "SELECT AVG(f.order_amount) AS aov FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id WHERE c.member_level = '钻石会员'",
+    "must_contain_tokens": [
+      "AVG",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "member_level"
+    ],
+    "expected_columns": [
+      "aov"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A19_total_revenue",
+    "category": "基础指标",
+    "difficulty": "easy",
+    "question": "公司总营收是多少？",
+    "expected_sql": "SELECT SUM(order_amount) AS gmv FROM fact_order",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "A20_total_quantity",
+    "category": "基础指标",
+    "difficulty": "easy",
+    "question": "所有订单的总下单数量？",
+    "expected_sql": "SELECT SUM(order_quantity) AS qty FROM fact_order",
+    "must_contain_tokens": [
+      "SUM",
+      "order_quantity",
+      "fact_order"
+    ],
+    "expected_columns": [
+      "qty"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "B01_gmv_by_region",
+    "category": "区域销售",
+    "difficulty": "medium",
+    "question": "各大区的 GMV 是多少？",
+    "expected_sql": "SELECT r.region_name, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id GROUP BY r.region_name",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "region_name",
+      "gmv"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "B02_gmv_by_category",
+    "category": "商品分析",
+    "difficulty": "medium",
+    "question": "各品类的销售额",
+    "expected_sql": "SELECT p.category, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id GROUP BY p.category",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "category",
+      "gmv"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "B03_gmv_by_member",
+    "category": "用户分析",
+    "difficulty": "medium",
+    "question": "各会员等级的 GMV 对比",
+    "expected_sql": "SELECT c.member_level, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id GROUP BY c.member_level",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "member_level",
+      "gmv"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "B04_order_cnt_by_region",
+    "category": "区域销售",
+    "difficulty": "medium",
+    "question": "每个区域的订单数",
+    "expected_sql": "SELECT r.region_name, COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id GROUP BY r.region_name",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_region",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "region_name",
+      "cnt"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "B05_aov_by_category",
+    "category": "商品分析",
+    "difficulty": "medium",
+    "question": "各品类的客单价 (AOV)",
+    "expected_sql": "SELECT p.category, AVG(f.order_amount) AS aov FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id GROUP BY p.category",
+    "must_contain_tokens": [
+      "AVG",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "category",
+      "aov"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "B06_quantity_by_region",
+    "category": "区域销售",
+    "difficulty": "medium",
+    "question": "各区域的总下单数量",
+    "expected_sql": "SELECT r.region_name, SUM(f.order_quantity) AS qty FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id GROUP BY r.region_name",
+    "must_contain_tokens": [
+      "SUM",
+      "order_quantity",
+      "fact_order",
+      "dim_region",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "region_name",
+      "qty"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "B07_gmv_by_month",
+    "category": "趋势分析",
+    "difficulty": "medium",
+    "question": "每月的 GMV 趋势",
+    "expected_sql": "SELECT d.month, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_date d ON d.date_id = f.date_id GROUP BY d.month",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_date",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "month",
+      "gmv"
+    ],
+    "row_count_min": 6,
+    "row_count_max": 13,
+    "hint": "data only spans Jan-Jun 2025, expected 6 months in current dataset"
+  },
+  {
+    "id": "B08_gmv_phone_huadong",
+    "category": "区域+商品",
+    "difficulty": "medium",
+    "question": "华东地区手机品类的 GMV？",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id JOIN dim_product p ON p.product_id = f.product_id WHERE r.province IN ('上海', '江苏', '浙江') AND p.category = '手机数码'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region",
+      "dim_product"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "B09_gmv_diamond_computer",
+    "category": "用户+商品",
+    "difficulty": "medium",
+    "question": "钻石会员在电脑办公的销售额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id JOIN dim_product p ON p.product_id = f.product_id WHERE c.member_level = '钻石会员' AND p.category = '电脑办公'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "dim_product"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "B10_order_cnt_gold_phone",
+    "category": "用户+商品",
+    "difficulty": "medium",
+    "question": "黄金会员手机品类的订单数？",
+    "expected_sql": "SELECT COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id JOIN dim_product p ON p.product_id = f.product_id WHERE c.member_level = '黄金会员' AND p.category = '手机数码'",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_customer",
+      "dim_product"
+    ],
+    "expected_columns": [
+      "cnt"
+    ],
+    "row_count_min": 0,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "B11_gmv_gold_huadong",
+    "category": "用户+区域",
+    "difficulty": "medium",
+    "question": "黄金会员华东 GMV",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id JOIN dim_region r ON r.region_id = f.region_id WHERE c.member_level = '黄金会员' AND r.province IN ('上海', '江苏', '浙江')",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 0,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "B12_gmv_by_region_category",
+    "category": "区域+商品",
+    "difficulty": "medium",
+    "question": "各区域各品类的销售额",
+    "expected_sql": "SELECT r.region_name, p.category, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id JOIN dim_product p ON p.product_id = f.product_id GROUP BY r.region_name, p.category",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "region_name",
+      "category",
+      "gmv"
+    ],
+    "row_count_min": 10,
+    "row_count_max": 20,
+    "hint": ""
+  },
+  {
+    "id": "B13_aov_by_region_member",
+    "category": "区域+用户",
+    "difficulty": "medium",
+    "question": "各区域各会员等级的客单价",
+    "expected_sql": "SELECT r.region_name, c.member_level, AVG(f.order_amount) AS aov FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id JOIN dim_customer c ON c.customer_id = f.customer_id GROUP BY r.region_name, c.member_level",
+    "must_contain_tokens": [
+      "AVG",
+      "order_amount",
+      "fact_order",
+      "dim_region",
+      "dim_customer",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "region_name",
+      "member_level",
+      "aov"
+    ],
+    "row_count_min": 8,
+    "row_count_max": 20,
+    "hint": ""
+  },
+  {
+    "id": "C01_top_regions_by_gmv",
+    "category": "区域排行",
+    "difficulty": "hard",
+    "question": "GMV 最高的 3 个区域是哪些？",
+    "expected_sql": "SELECT r.region_name, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id GROUP BY r.region_name ORDER BY gmv DESC LIMIT 3",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "region_name",
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": 3,
+    "hint": ""
+  },
+  {
+    "id": "C02_top_categories",
+    "category": "商品排行",
+    "difficulty": "hard",
+    "question": "销售额最高的 5 个品类？",
+    "expected_sql": "SELECT p.category, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id GROUP BY p.category ORDER BY gmv DESC LIMIT 5",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "category",
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": 5,
+    "hint": ""
+  },
+  {
+    "id": "C03_order_cnt_by_member",
+    "category": "用户分析",
+    "difficulty": "hard",
+    "question": "哪个会员等级下单数最多？",
+    "expected_sql": "SELECT c.member_level, COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id GROUP BY c.member_level ORDER BY cnt DESC",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_customer",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "member_level",
+      "cnt"
+    ],
+    "row_count_min": 2,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "C04_quantity_by_category",
+    "category": "商品分析",
+    "difficulty": "hard",
+    "question": "各品类的总下单数量（按降序）",
+    "expected_sql": "SELECT p.category, SUM(f.order_quantity) AS qty FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id GROUP BY p.category ORDER BY qty DESC",
+    "must_contain_tokens": [
+      "SUM",
+      "order_quantity",
+      "fact_order",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "category",
+      "qty"
+    ],
+    "row_count_min": 4,
+    "row_count_max": 4,
+    "hint": ""
+  },
+  {
+    "id": "C05_avg_qty_per_order",
+    "category": "基础指标",
+    "difficulty": "hard",
+    "question": "平均每笔订单的下单数量",
+    "expected_sql": "SELECT AVG(order_quantity) AS avg_qty FROM fact_order",
+    "must_contain_tokens": [
+      "AVG",
+      "order_quantity",
+      "fact_order"
+    ],
+    "expected_columns": [
+      "avg_qty"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "D01_gmv_ratio_huadong",
+    "category": "区域比例",
+    "difficulty": "hard",
+    "question": "华东 GMV 占总 GMV 的比例？",
+    "expected_sql": "SELECT SUM(CASE WHEN r.province IN ('上海', '江苏', '浙江') THEN f.order_amount ELSE 0 END) / SUM(f.order_amount) AS ratio FROM fact_order f JOIN dim_region r ON r.region_id = f.region_id",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "ratio"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "D02_phone_share",
+    "category": "商品比例",
+    "difficulty": "hard",
+    "question": "手机品类订单占比",
+    "expected_sql": "SELECT SUM(CASE WHEN p.category = '手机数码' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS ratio FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_product",
+      "category"
+    ],
+    "expected_columns": [
+      "ratio"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "D03_diamond_share",
+    "category": "用户比例",
+    "difficulty": "hard",
+    "question": "钻石会员占总会员的比例？",
+    "expected_sql": "SELECT SUM(CASE WHEN c.member_level = '钻石会员' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS ratio FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_customer"
+    ],
+    "expected_columns": [
+      "ratio"
+    ],
+    "row_count_min": 0,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "E01_gmv_year",
+    "category": "时间维度",
+    "difficulty": "medium",
+    "question": "2025 年全年的 GMV",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_date d ON d.date_id = f.date_id WHERE d.year = 2025",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_date",
+      "year"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "E02_gmv_month1",
+    "category": "时间维度",
+    "difficulty": "medium",
+    "question": "1 月份的销售总额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_date d ON d.date_id = f.date_id WHERE d.month = 1",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_date",
+      "month"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "E03_gmv_q1",
+    "category": "时间维度",
+    "difficulty": "medium",
+    "question": "第一季度 GMV",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_date d ON d.date_id = f.date_id WHERE d.quarter = 'Q1'",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_date",
+      "quarter"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "E04_gmv_by_quarter",
+    "category": "时间维度",
+    "difficulty": "medium",
+    "question": "各季度销售额对比",
+    "expected_sql": "SELECT d.quarter, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_date d ON d.date_id = f.date_id GROUP BY d.quarter",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_date",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "quarter",
+      "gmv"
+    ],
+    "row_count_min": 2,
+    "row_count_max": 4,
+    "hint": "data only spans Q1+Q2 2025, expected 2 quarters in current dataset"
+  },
+  {
+    "id": "F01_gmv_by_brand",
+    "category": "商品分析",
+    "difficulty": "medium",
+    "question": "各品牌的销售额",
+    "expected_sql": "SELECT p.brand, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id GROUP BY p.brand",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "brand",
+      "gmv"
+    ],
+    "row_count_min": 5,
+    "row_count_max": 20,
+    "hint": ""
+  },
+  {
+    "id": "F02_cnt_by_brand",
+    "category": "商品分析",
+    "difficulty": "medium",
+    "question": "各品牌的订单数量",
+    "expected_sql": "SELECT p.brand, COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id GROUP BY p.brand",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_product",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "brand",
+      "cnt"
+    ],
+    "row_count_min": 5,
+    "row_count_max": 20,
+    "hint": ""
+  },
+  {
+    "id": "F03_gmv_apple_huadong",
+    "category": "品牌+区域",
+    "difficulty": "medium",
+    "question": "苹果品牌华东的销售额",
+    "expected_sql": "SELECT SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_product p ON p.product_id = f.product_id JOIN dim_region r ON r.region_id = f.region_id WHERE p.brand = '苹果' AND r.province IN ('上海', '江苏', '浙江')",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_product",
+      "dim_region"
+    ],
+    "expected_columns": [
+      "gmv"
+    ],
+    "row_count_min": 1,
+    "row_count_max": null,
+    "hint": ""
+  },
+  {
+    "id": "G01_gmv_by_gender",
+    "category": "用户分析",
+    "difficulty": "medium",
+    "question": "不同性别的销售额对比",
+    "expected_sql": "SELECT c.gender, SUM(f.order_amount) AS gmv FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id GROUP BY c.gender",
+    "must_contain_tokens": [
+      "SUM",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "gender",
+      "gmv"
+    ],
+    "row_count_min": 2,
+    "row_count_max": 3,
+    "hint": ""
+  },
+  {
+    "id": "G02_cnt_by_gender",
+    "category": "用户分析",
+    "difficulty": "medium",
+    "question": "各性别的订单数",
+    "expected_sql": "SELECT c.gender, COUNT(f.order_id) AS cnt FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id GROUP BY c.gender",
+    "must_contain_tokens": [
+      "COUNT",
+      "fact_order",
+      "dim_customer",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "gender",
+      "cnt"
+    ],
+    "row_count_min": 2,
+    "row_count_max": 3,
+    "hint": ""
+  },
+  {
+    "id": "G03_aov_by_gender",
+    "category": "用户分析",
+    "difficulty": "medium",
+    "question": "不同性别客单价",
+    "expected_sql": "SELECT c.gender, AVG(f.order_amount) AS aov FROM fact_order f JOIN dim_customer c ON c.customer_id = f.customer_id GROUP BY c.gender",
+    "must_contain_tokens": [
+      "AVG",
+      "order_amount",
+      "fact_order",
+      "dim_customer",
+      "GROUP BY"
+    ],
+    "expected_columns": [
+      "gender",
+      "aov"
+    ],
+    "row_count_min": 2,
+    "row_count_max": 3,
+    "hint": ""
+  }
+]

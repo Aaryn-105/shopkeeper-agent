@@ -25,3 +25,4 @@ data/faiss/*.jsonl
 .vscode/
 *.swp
 .DS_Store
+tmp/
