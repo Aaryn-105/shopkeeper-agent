@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from threading import RLock
@@ -56,15 +56,25 @@ class Metrics:
         self._sql_executed_ok: int = 0
         self._sql_executed_failed: int = 0
 
+        # phase 8: time-series ring buffer for /api/stats/timeseries
+        # Each entry is (timestamp_seconds, compact_snapshot). Bumped
+        # by every record_* method so consumers see the trend without
+        # having to poll /api/stats repeatedly.
+        self._timeseries: deque[tuple[float, dict[str, Any]]] = deque(maxlen=2000)
+        self._last_bump_ts: float = 0.0
+        self._bump_min_interval_s: float = 0.25  # rate-limit bumps
+
     # ---------- existing v1.0 methods (unchanged) ----------
 
     def record_node_latency(self, node: str, ms: float) -> None:
         with self._lock:
             self._node_latencies[node].append(float(ms))
+        self._bump_timeseries()
 
     def record_llm_call(self, stat: LLMCallStat) -> None:
         with self._lock:
             self._llm_calls.append(stat)
+        self._bump_timeseries()
 
     def record_cache(self, hit: bool) -> None:
         with self._lock:
@@ -72,10 +82,12 @@ class Metrics:
                 self._cache_hits += 1
             else:
                 self._cache_misses += 1
+            self._bump_timeseries()
 
     def record_request(self) -> None:
         with self._lock:
             self._requests_total += 1
+        self._bump_timeseries()
 
     # ---------- phase 6.3 additions ----------
 
@@ -88,11 +100,13 @@ class Metrics:
                 self._requests_error += 1
             if duration_ms > 0:
                 self._request_durations_ms.append(float(duration_ms))
+            self._bump_timeseries()
 
     def record_sql_generated(self) -> None:
         """Called once per generate_sql invocation (including retries)."""
         with self._lock:
             self._sql_generated += 1
+            self._bump_timeseries()
 
     def record_sql_validated(self, corrected: bool) -> None:
         """Called by validate_sql. corrected=True means validation failed and
@@ -103,6 +117,7 @@ class Metrics:
                 self._sql_corrected += 1
             else:
                 self._sql_validated_first_pass += 1
+            self._bump_timeseries()
 
     def record_sql_executed(self, success: bool) -> None:
         """Called by run_sql. success=True means query returned without error."""
@@ -111,6 +126,7 @@ class Metrics:
                 self._sql_executed_ok += 1
             else:
                 self._sql_executed_failed += 1
+            self._bump_timeseries()
 
     # ---------- read accessors used by /api/stats ----------
 
@@ -186,6 +202,53 @@ class Metrics:
                     for node, lats in self._node_latencies.items()
                 },
             }
+
+
+    # ---------- phase 8: time-series ring buffer ----------
+    def _bump_timeseries(self) -> None:
+        """Append a compact snapshot to the ring buffer.
+
+        Called from every record_* method (rate-limited to avoid
+        hot-path overhead). Thread-safe via the outer _lock.
+        """
+        now = time.time()
+        with self._lock:
+            if now - self._last_bump_ts < self._bump_min_interval_s:
+                return
+            self._last_bump_ts = now
+            self._timeseries.append((
+                now,
+                {
+                    "tokens_total": sum(s.total_tokens for s in self._llm_calls),
+                    "llm_calls": len(self._llm_calls),
+                    "cache_hits": self._cache_hits,
+                    "cache_misses": self._cache_misses,
+                    "requests_total": self._requests_total,
+                    "requests_success": self._requests_success,
+                    "requests_error": self._requests_error,
+                    "sql_generated": self._sql_generated,
+                    "sql_executed_ok": self._sql_executed_ok,
+                    "sql_executed_failed": self._sql_executed_failed,
+                },
+            ))
+
+    def timeseries_snapshot(self, window_seconds: int = 600) -> list[dict[str, Any]]:
+        """Return time-series points within the last `window_seconds`.
+
+        Each point is a flat dict with a numeric `ts` epoch (ms) plus
+        the counters at that moment. Designed for /api/stats/timeseries
+        so the /stats dashboard can draw trends.
+        """
+        now = time.time()
+        with self._lock:
+            return [
+                {
+                    "ts_ms": int(ts * 1000),
+                    **data,
+                }
+                for ts, data in self._timeseries
+                if (now - ts) <= window_seconds
+            ]
 
     # ---------- helpers ----------
 

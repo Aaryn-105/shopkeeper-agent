@@ -126,6 +126,26 @@ export interface MetricInfo {
   alias?: string | string[];
 }
 
+// /api/stats/timeseries payload (phase 8)
+export interface TimeseriesPoint {
+  ts_ms: number;
+  tokens_total: number;
+  llm_calls: number;
+  cache_hits: number;
+  cache_misses: number;
+  requests_total: number;
+  requests_success: number;
+  requests_error: number;
+  sql_generated: number;
+  sql_executed_ok: number;
+  sql_executed_failed: number;
+}
+export interface TimeseriesResponse {
+  window_seconds: number;
+  count: number;
+  points: TimeseriesPoint[];
+}
+
 // /api/history payload
 export interface HistoryItem {
   id: number;

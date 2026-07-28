@@ -15,7 +15,7 @@
 from __future__ import annotations
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from app.core.metrics import get_metrics
 
@@ -32,6 +32,29 @@ async def get_stats(request: Request) -> dict[str, Any]:
     plus the OPS-009 / OPS-010 observability data.
     """
     payload = get_metrics().stats_snapshot()
+    rid = getattr(request.state, "request_id", None)
+    if rid:
+        payload["request_id"] = rid
+    return payload
+
+@router.get("/stats/timeseries")
+async def get_stats_timeseries(
+    request: Request,
+    window: int = Query(default=600, ge=10, le=86400,
+                        description="Window in seconds (10s - 24h)"),
+) -> dict[str, Any]:
+    """Return time-series points for the /stats dashboard charts.
+
+    Phase 8 — used by the SVG Sparkline / Bar / Gauge charts on /stats.
+    Backs onto Metrics.timeseries_snapshot which reads from the in-memory
+    ring buffer (maxlen=2000, rate-limited bump on every record_* call).
+    """
+    points = get_metrics().timeseries_snapshot(window_seconds=window)
+    payload: dict[str, Any] = {
+        "window_seconds": window,
+        "count": len(points),
+        "points": points,
+    }
     rid = getattr(request.state, "request_id", None)
     if rid:
         payload["request_id"] = rid

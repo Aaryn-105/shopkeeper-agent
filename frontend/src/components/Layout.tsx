@@ -3,6 +3,7 @@ import { NavLink, Outlet, Link } from "react-router-dom";
 const NAV = [
   { to: "/", label: "提问", end: true },
   { to: "/stats", label: "运营指标" },
+  { to: "/history", label: "历史问答" },
   { to: "/samples", label: "示例问题" },
 ];
 

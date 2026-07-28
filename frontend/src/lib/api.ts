@@ -2,6 +2,7 @@
 // Throws on non-2xx responses with the server message in the error.
 import type {
   StatsSnapshot,
+  TimeseriesResponse,
   ConfigPayload,
   TableInfo,
   ColumnInfo,
@@ -60,6 +61,10 @@ async function listUnwrap<T>(path: string): Promise<T[]> {
 export const api = {
   config: () => jsonFetch<ConfigPayload>("/api/config"),
   stats: () => jsonFetch<StatsSnapshot>("/api/stats"),
+  statsTimeseries: (window = 600) =>
+    jsonFetch<TimeseriesResponse>(
+      `/api/stats/timeseries?window=${window}`,
+    ),
   metadataTables: () => listUnwrap<TableInfo>("/api/metadata/tables"),
   metadataTable: (id: string) =>
     jsonFetch<{ table: TableInfo; columns: ColumnInfo[] }>(

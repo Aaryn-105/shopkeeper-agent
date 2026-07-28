@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "../components/Card";
 import { EventLog } from "../components/EventLog";
 import { ResultTable } from "../components/ResultTable";
@@ -9,7 +10,8 @@ import type { AskEvent, ConfigPayload } from "../lib/types";
 export function HomePage() {
   const [config, setConfig] = useState<ConfigPayload | null>(null);
   const [configErr, setConfigErr] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [running, setRunning] = useState(false);
   const [events, setEvents] = useState<AskEvent[]>([]);
   const [latestResult, setLatestResult] = useState<
