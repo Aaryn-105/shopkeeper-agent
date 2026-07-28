@@ -1,3 +1,4 @@
+# pylint: disable=too-many-locals,redefined-outer-name,unused-argument
 """Phase 9 -- NL2SQL accuracy test against the live local stack.
 
 For each case in tests/fixtures/nl2sql_cases.json the test:
@@ -37,8 +38,6 @@ from app.clients.faiss_client import FAISSStore
 from app.clients.fts5_client import FTS5Store
 from app.clients.llm_client import LLMClient
 from app.clients.mysql_client import MetadataClient, MySQLClient
-from app.core.config import cfg
-from app.core.logger import logger
 from app.core.metrics import get_metrics
 from app.services.ask_service import AskService
 
@@ -62,7 +61,7 @@ def expected_results(cases) -> dict[str, dict[str, Any]]:
         try:
             r = asyncio.run(dw.execute_readonly(c["expected_sql"]))
             out[c["id"]] = r
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             out[c["id"]] = {"_error": str(e), "columns": [], "rows": [], "row_count": 0}
     asyncio.run(dw.aclose())
     return out
@@ -139,7 +138,7 @@ ASK_SERVICE = AskService(mode="direct")
 @pytest.mark.parametrize("case_index", list(range(51)), ids=lambda i: f"case-{i}")
 def test_case_accuracy(case_index, cases, expected_results):
     case = cases[case_index]
-    runtime, cache = _build_runtime()
+    runtime, _cache = _build_runtime()  # pylint: disable=unused-variable
     try:
         final = _run_service(case["question"], runtime, ASK_SERVICE)
         sql = final.get("sql", "") or ""
@@ -197,7 +196,7 @@ def test_case_accuracy(case_index, cases, expected_results):
     finally:
         try:
             asyncio.run(runtime.mysql_dw.aclose())  # type: ignore[attr-defined]
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
 

@@ -1,3 +1,4 @@
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-return-statements
 """LLM client abstraction with OpenAI-compatible backend and a deterministic mock.
 
 When cfg.llm.api_key is empty we operate in mock mode: a tiny rule-based
@@ -11,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from app.core.config import cfg
 
@@ -45,9 +46,9 @@ class LLMClient:
             else int(cfg.llm.max_tokens)
         )
         self._real = None
-        if self.api_key:
+        if self.api_key:  # noqa: SIM105
             try:
-                from langchain_openai import ChatOpenAI
+                from langchain_openai import ChatOpenAI  # pylint: disable=import-outside-toplevel
                 self._real = ChatOpenAI(
                     model=self.model,
                     api_key=self.api_key,
@@ -55,15 +56,19 @@ class LLMClient:
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 self._real = None
 
     @property
     def is_mock(self) -> bool:
         return self._real is None
 
-    async def ainvoke(self, prompt: str, system: Optional[str] = None,
-                      response_format: Optional[str] = None) -> LLMResponse:
+    async def ainvoke(  # pylint: disable=unused-argument
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        response_format: Optional[str] = None,
+    ) -> LLMResponse:
         if self._real is None:
             text = _mock_generate(prompt)
             return LLMResponse(
@@ -73,6 +78,7 @@ class LLMClient:
                 latency_ms=0,
                 cache_hit=False,
             )
+        # pylint: disable=import-outside-toplevel
         from langchain_core.messages import SystemMessage, HumanMessage
         msgs = []
         if system:
@@ -115,7 +121,7 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
     "白银": ("dim_customer", "member_level", ["\u94f6\u5361\u4f1a\u5458"]),
     "普通": ("dim_customer", "member_level", ["\u666e\u901a\u4f1a\u5458"]),
 
-    # ---- product category (\u5bb6\u7528\u7535\u5668 / \u624b\u673a\u6570\u7801 / \u670d\u9970\u978b\u5305 / \u7535\u8111\u529e\u516c)
+    # ---- product category (\u5bb6\u7528\u7535\u5668 / \u624b\u673a\u6570\u7801 / \u670d\u9970\u978b\u5305 / \u7535\u8111\u529e\u516c)  # pylint: disable=line-too-long
     "手机": ("dim_product", "category", ["\u624b\u673a\u6570\u7801"]),
     "电脑": ("dim_product", "category", ["\u7535\u8111\u529e\u516c"]),
     "家电": ("dim_product", "category", ["\u5bb6\u7528\u7535\u5668"]),
@@ -170,7 +176,7 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
 # Time-window phrases: each maps to a WHERE-clause fragment against dim_date.
 _TIME_PHRASES: list[tuple[list[str], str]] = [
     (["\u4e0a\u6708", "\u4e0a\u4e2a\u6708", "\u4e0a\u4e00\u4e2a\u6708", "\u4e0a\u4e2a\u6708\u4efd"],
-     "MONTH(d.date_id_str) = MONTH(CURDATE() - INTERVAL 1 MONTH) AND YEAR(d.date_id_str) = YEAR(CURDATE() - INTERVAL 1 MONTH)"),
+     "MONTH(d.date_id_str) = MONTH(CURDATE() - INTERVAL 1 MONTH) AND YEAR(d.date_id_str) = YEAR(CURDATE() - INTERVAL 1 MONTH)"),  # pylint: disable=line-too-long
     (["\u4e0a\u5b63\u5ea6", "\u4e0a\u4e00\u5b63\u5ea6", "\u4e0a\u4e2a\u5b63\u5ea6"],
      "d.quarter = CONCAT('Q', QUARTER(CURDATE() - INTERVAL 3 MONTH))"),
     (["\u672c\u5e74", "\u4eca\u5e74"],
@@ -286,7 +292,7 @@ def _detect_group_by(query: str):
     """Return list of (alias, sql_expression) for GROUP BY columns."""
     out = []
     # Triggers: explicit aggregation / partition keywords
-    triggers = ["\u6309", "GROUP", "group", "\u5404", "\u5206\u7ec4", "\u5404\u4e2a", "\u6bd4\u4f8b", "\u5360\u6bd4", "\u5404\u4e2a\u6708", "\u6708\u4efd", "\u5b63\u5ea6", "\u5e74\u4efd", "\u6bcf\u4e2a\u6708", "\u6bcf\u6708", "\u6bcf\u5b63\u5ea6", "\u6bcf\u5e74", "\u6bcf", "\u5404\u54c1\u7c7b", "\u5404\u5927\u533a", "\u8d8b\u52bf", "\u5bf9\u6bd4", "\u6027\u522b", "\u591a\u5c11", "\u603b\u91cf", "\u9500\u91cf", "\u6708", "\u6700\u9ad8", "\u6700\u591a"]
+    triggers = ["\u6309", "GROUP", "group", "\u5404", "\u5206\u7ec4", "\u5404\u4e2a", "\u6bd4\u4f8b", "\u5360\u6bd4", "\u5404\u4e2a\u6708", "\u6708\u4efd", "\u5b63\u5ea6", "\u5e74\u4efd", "\u6bcf\u4e2a\u6708", "\u6bcf\u6708", "\u6bcf\u5b63\u5ea6", "\u6bcf\u5e74", "\u6bcf", "\u5404\u54c1\u7c7b", "\u5404\u5927\u533a", "\u8d8b\u52bf", "\u5bf9\u6bd4", "\u6027\u522b", "\u591a\u5c11", "\u603b\u91cf", "\u9500\u91cf", "\u6708", "\u6700\u9ad8", "\u6700\u591a"]  # pylint: disable=line-too-long
     needs_group = any(kw in query for kw in triggers)
 
     # Rules: keyword -> SQL expression to GROUP BY
@@ -344,7 +350,7 @@ def _detect_order_limit(query: str) -> tuple[Optional[str], Optional[int]]:
     return None, None
 
 def _wants_aggregate(query: str) -> bool:
-    if any(kw in query for kw in ["\u591a\u5c11", "\u603b", "\u5e73\u5747", "\u5360\u6bd4", "\u6bd4\u4f8b", "\u7387", "\u989d", "\u6570", "\u9500\u552e\u989d", "\u8ba2\u5355\u6570", "\u5ba2\u5355\u4ef7"]):
+    if any(kw in query for kw in ["\u591a\u5c11", "\u603b", "\u5e73\u5747", "\u5360\u6bd4", "\u6bd4\u4f8b", "\u7387", "\u989d", "\u6570", "\u9500\u552e\u989d", "\u8ba2\u5355\u6570", "\u5ba2\u5355\u4ef7"]):  # pylint: disable=line-too-long
         return True
     for phrase, (tbl, _, _) in _PHRASES.items():
         if tbl in _METRIC_PHRASES and phrase in query:
@@ -354,7 +360,7 @@ def _wants_aggregate(query: str) -> bool:
 
 
 def _build_ratio_sql(query: str, joins: list[str], wheres: list[str]) -> Optional[str]:
-    """Build a ratio SQL (\u5360\u6bd4/\u6bd4\u4f8b/\u603b\u5360) when the user asks for percentage."""
+    """Build a ratio SQL (\u5360\u6bd4/\u6bd4\u4f8b/\u603b\u5360) when the user asks for percentage."""  # pylint: disable=line-too-long
     ratio_kw = [chr(0x5360) + chr(0x6bd4), chr(0x6bd4) + chr(0x4f8b), chr(0x603b) + chr(0x5360)]
     if not any(kw in query for kw in ratio_kw):
         return None
@@ -363,7 +369,7 @@ def _build_ratio_sql(query: str, joins: list[str], wheres: list[str]) -> Optiona
     for j in joins[:]:
         if "dim_region" in j and any(w.startswith("r.province") for w in wheres):
             case_clauses.append(
-                f"SUM(CASE WHEN {wheres[0]} THEN f.order_amount ELSE 0 END) / NULLIF(SUM(f.order_amount), 0) AS ratio"
+                f"SUM(CASE WHEN {wheres[0]} THEN f.order_amount ELSE 0 END) / NULLIF(SUM(f.order_amount), 0) AS ratio"  # pylint: disable=line-too-long
             )
             break
         if "dim_product" in j and any(w.startswith("p.category") for w in wheres):
@@ -444,7 +450,7 @@ def _mock_generate(prompt: str) -> str:
         if not _wants_aggregate(query) and not group_cols:
             select_parts = ["COUNT(*) AS cnt"]
         else:
-            metric_alias = {"GMV": "gmv", "ORDER_CNT": "cnt", "AOV": "aov", "QTY": ("avg_qty" if measure_fn == "AVG" else "total_qty")}.get(metric, "value")
+            metric_alias = {"GMV": "gmv", "ORDER_CNT": "cnt", "AOV": "aov", "QTY": ("avg_qty" if measure_fn == "AVG" else "total_qty")}.get(metric, "value")  # pylint: disable=line-too-long
             select_parts = [f"{measure_fn}({measure_col}) AS {metric_alias}"]
             for alias, expr in group_cols:
                 select_parts.append(f"{expr} AS {alias}")
@@ -462,7 +468,7 @@ def _mock_generate(prompt: str) -> str:
         if group_cols:
             sql_parts.append("GROUP BY " + ", ".join(expr for _, expr in group_cols))
         if order_dir and (metric is not None or group_cols):
-            order_alias = {"GMV": "gmv", "ORDER_CNT": "cnt", "AOV": "aov", "QTY": "total_qty"}.get(metric, "value")
+            order_alias = {"GMV": "gmv", "ORDER_CNT": "cnt", "AOV": "aov", "QTY": "total_qty"}.get(metric, "value")  # pylint: disable=line-too-long
             sql_parts.append(f"ORDER BY {order_alias} {order_dir}")
         if limit and limit <= 1000:
             sql_parts.append(f"LIMIT {limit}")
@@ -472,7 +478,7 @@ def _mock_generate(prompt: str) -> str:
         m = re.search(r"([\d,]+\.\d+|[\d,]+)", prompt)
         value = m.group(1) if m else ""
         if value:
-            return f"\u9488\u5bf9\u60a8\u7684\u95ee\u9898\uff0c\u67e5\u8be2\u8fd4\u56de\u6570\u503c {value}\u3002\u6570\u636e\u5df2\u6309\u6700\u65b0\u4e8b\u5b9e\u8868\u7edf\u8ba1\u3002"
-        return "\u9488\u5bf9\u60a8\u7684\u95ee\u9898\uff0c\u67e5\u8be2\u5df2\u8fd4\u56de\u6700\u65b0\u7ed3\u679c\u3002"
+            return f"\u9488\u5bf9\u60a8\u7684\u95ee\u9898\uff0c\u67e5\u8be2\u8fd4\u56de\u6570\u503c {value}\u3002\u6570\u636e\u5df2\u6309\u6700\u65b0\u4e8b\u5b9e\u8868\u7edf\u8ba1\u3002"  # pylint: disable=line-too-long
+        return "\u9488\u5bf9\u60a8\u7684\u95ee\u9898\uff0c\u67e5\u8be2\u5df2\u8fd4\u56de\u6700\u65b0\u7ed3\u679c\u3002"  # pylint: disable=line-too-long
 
     return f"[mock-llm] {head}"

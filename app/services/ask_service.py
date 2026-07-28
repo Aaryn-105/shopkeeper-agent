@@ -158,7 +158,7 @@ async def _run_direct(question: str, runtime: AgentRuntime,
 async def _run_graph(question: str, runtime: AgentRuntime) -> dict[str, Any]:
     """Fall-back path that runs through the compiled StateGraph. Kept as a
     safety net in case the direct driver ever diverges from the graph spec."""
-    from app.agent.graph import get_graph
+    from app.agent.graph import get_graph  # pylint: disable=import-outside-toplevel
 
     initial: AgentState = {
         "query": question,
