@@ -5,7 +5,7 @@ Inserts:
   - dw.dim_customer   : 50 customers across 4 member levels
   - dw.dim_product    : 50 products across 4 categories / 5 brands
   - dw.dim_region     : 12 regions (4 provinces per region x 3 macro regions)
-  - dw.dim_date       : 365 dates for calendar year 2025
+  - dw.dim_date       : 1095 dates spanning 2025-01-01 .. 2027-12-31
 
 Also seeds meta metadata so the agent has something to recall:
   - meta.table_info : 5 tables (fact_order + 4 dims)
@@ -72,10 +72,10 @@ def _date_id(d: date) -> int:
     return d.year * 10000 + d.month * 100 + d.day
 
 
-def _build_dim_date_rows() -> list[tuple]:
+def _build_dim_date_rows(start_year: int = 2025, days: int = 1095) -> list[tuple]:
     rows = []
-    start = date(2025, 1, 1)
-    for offset in range(365):
+    start = date(start_year, 1, 1)
+    for offset in range(days):
         d = start + timedelta(days=offset)
         quarter = f"Q{(d.month - 1) // 3 + 1}"
         rows.append((_date_id(d), d.year, quarter, d.month, d.day))
@@ -86,7 +86,9 @@ def _build_fact_order_rows(rng: random.Random) -> list[tuple]:
     rows = []
     start = date(2025, 1, 1)
     for i in range(1, 1001):
-        offset = rng.randint(0, 180)  # 6 months
+        # Spread dates across ~30 months so "上个月" / "最近30天" / "YTD"
+        # always return rows regardless of when the demo is run.
+        offset = rng.randint(0, 900)
         d = start + timedelta(days=offset)
         customer = rng.choice(CUSTOMERS)
         product = rng.choice(PRODUCTS)
@@ -205,7 +207,8 @@ def _ensure_dw(cur) -> dict[str, int]:
     )
     counts["dim_customer"] = len(CUSTOMERS)
 
-    date_rows = _build_dim_date_rows()
+    # dim_date: insert-ignore so reruns are safe and additive.
+    date_rows = _build_dim_date_rows(start_year=2025, days=1095)
     cur.executemany(
         "INSERT IGNORE INTO dim_date (date_id, year, quarter, month, day) "
         "VALUES (%s,%s,%s,%s,%s)",
@@ -213,10 +216,14 @@ def _ensure_dw(cur) -> dict[str, int]:
     )
     counts["dim_date"] = len(date_rows)
 
+    # fact_order: truncate first so the new date range actually applies.
+    cur.execute("DELETE FROM fact_order")
+    counts["fact_order_deleted"] = cur.rowcount
+
     rng = random.Random(20251225)
     order_rows = _build_fact_order_rows(rng)
     cur.executemany(
-        "INSERT IGNORE INTO fact_order "
+        "INSERT INTO fact_order "  # not IGNORE: we just truncated
         "(order_id, customer_id, product_id, date_id, region_id, order_quantity, order_amount) "
         "VALUES (%s,%s,%s,%s,%s,%s,%s)",
         order_rows,
