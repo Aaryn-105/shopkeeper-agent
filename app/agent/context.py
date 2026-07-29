@@ -5,9 +5,11 @@ store, MySQL dw client, cache, metrics, logger). It is constructed once per
 request and exposed via LangGraph''s configurable={"runtime": ...} so each node
 can read it from the runtime parameter.
 """
+
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Any, Optional
+
+from dataclasses import dataclass, field
+from typing import Any
 
 from app.core.metrics import Metrics
 
@@ -15,6 +17,7 @@ from app.core.metrics import Metrics
 @dataclass
 class AgentRuntime:
     """Shared dependencies injected into every node invocation."""
+
     request_id: str
     metrics: Metrics
     # clients (lazy-initialized when present)
@@ -24,6 +27,7 @@ class AgentRuntime:
     fts5: Any = None
     mysql_dw: Any = None
     cache: Any = None
+    pending_events: list[dict[str, Any]] = field(default_factory=list)
 
     # diagnostics
     nodes_called: int = 0

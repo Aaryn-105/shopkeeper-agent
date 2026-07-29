@@ -43,17 +43,15 @@ export function startAskStream(
         const { value, done: rdDone } = await reader.read();
         if (rdDone) break;
         buf += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buf.indexOf("\n\n")) !== -1) {
-          const rawFrame = buf.slice(0, idx);
-          buf = buf.slice(idx + 2);
+        const extracted = extractSseFrames(buf);
+        buf = extracted.rest;
+        for (const rawFrame of extracted.frames) {
           const parsed = parseFrame(rawFrame);
           if (parsed) handlers.onEvent?.(parsed);
         }
       }
     } catch (e) {
       if ((e as Error).name === "AbortError") {
-        handlers.onClose?.();
         return;
       }
       handlers.onError?.(e as Error);
@@ -67,10 +65,25 @@ export function startAskStream(
   };
 }
 
-function parseFrame(raw: string): AskEvent | null {
+export function extractSseFrames(buffer: string): {
+  frames: string[];
+  rest: string;
+} {
+  const frames: string[] = [];
+  let rest = buffer;
+  while (true) {
+    const match = /\r?\n\r?\n/.exec(rest);
+    if (!match || match.index === undefined) break;
+    frames.push(rest.slice(0, match.index));
+    rest = rest.slice(match.index + match[0].length);
+  }
+  return { frames, rest };
+}
+
+export function parseFrame(raw: string): AskEvent | null {
   let event = "message";
   const dataLines: string[] = [];
-  for (const line of raw.split("\n")) {
+  for (const line of raw.split(/\r?\n/)) {
     if (!line) continue;
     if (line.startsWith(":")) continue; // comment / heartbeat
     const colon = line.indexOf(":");

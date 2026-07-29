@@ -6,7 +6,9 @@ V1.0 phase 6.9 spec:
   - On cache miss -> LLM call, parse JSON / fallback to SQL text, store in cache
   - stream_writer({"type":"sql_generated","sql": state.sql,"request_id": state.request_id})
 """
+
 from __future__ import annotations
+
 import hashlib
 import json
 from pathlib import Path
@@ -17,7 +19,6 @@ from langchain_core.runnables import RunnableConfig
 from app.agent.nodes._helpers import get_runtime, history_append, log_node, now_ms
 from app.agent.state import AgentState
 from app.core.metrics import LLMCallStat
-
 
 _PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompt" / "generate_sql.prompt"
 _FALLBACK_PROMPT = (
@@ -65,11 +66,16 @@ def fingerprint_metric_infos(metric_infos: list[Any]) -> str:
     return ",".join(mids)
 
 
-def make_cache_key(query: str, table_infos: dict[str, Any],
-                   metric_infos: list[Any]) -> str:
+def make_cache_key(
+    query: str, table_infos: dict[str, Any], metric_infos: list[Any]
+) -> str:
     """V1.0 phase 6.9: sha256(f"{query}|{fp(table)+fp(metric)}")."""
-    salt = fingerprint_table_infos(table_infos) + "|" + fingerprint_metric_infos(metric_infos)
-    raw = f"{query.strip()}|{salt}".encode("utf-8")
+    salt = (
+        fingerprint_table_infos(table_infos)
+        + "|"
+        + fingerprint_metric_infos(metric_infos)
+    )
+    raw = f"{query.strip()}|{salt}".encode()
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -114,15 +120,26 @@ def parse_sql_response(text: str) -> str:
 
     # 3. Plain SQL (detect by leading keyword)
     upper = text.upper()
-    if any(upper.startswith(kw) for kw in
-           ("SELECT", "WITH", "EXPLAIN", "SHOW", "INSERT",
-            "UPDATE", "DELETE", "CREATE")):
+    if any(
+        upper.startswith(kw)
+        for kw in (
+            "SELECT",
+            "WITH",
+            "EXPLAIN",
+            "SHOW",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "CREATE",
+        )
+    ):
         return text
 
     # 4. Heuristic: a SELECT/EXPLAIN line anywhere in the text. Require
     #    start-of-line (not just whitespace) so phrases like "garbage with no
     #    sql" do not accidentally match.
     import re
+
     for ln in text.splitlines():
         stripped = ln.strip()
         if stripped and re.match(r"^(SELECT|WITH|EXPLAIN)\b", stripped.upper()):
@@ -150,9 +167,7 @@ async def generate_sql(state: AgentState, config: RunnableConfig | None = None) 
     request_id = state.get("request_id", "-")
     query = state.get("query", "")
     table_infos = (
-        state.get("filtered_table_infos")
-        or state.get("merged_table_infos")
-        or {}
+        state.get("filtered_table_infos") or state.get("merged_table_infos") or {}
     )
     metric_infos = state.get("filtered_metric_infos") or []
     extra = state.get("extra_context") or {}
@@ -181,28 +196,51 @@ async def generate_sql(state: AgentState, config: RunnableConfig | None = None) 
                 current_time=extra.get("current_time", ""),
                 db_type=extra.get("db_type", ""),
                 db_version=extra.get("db_version", ""),
-                filtered_table_infos=json.dumps(table_infos, ensure_ascii=False, indent=2),
-                filtered_metric_infos=json.dumps(metric_infos, ensure_ascii=False, indent=2),
+                filtered_table_infos=json.dumps(
+                    table_infos, ensure_ascii=False, indent=2
+                ),
+                filtered_metric_infos=json.dumps(
+                    metric_infos, ensure_ascii=False, indent=2
+                ),
                 retrieved_values=json.dumps(
                     state.get("retrieved_values") or [],
-                    ensure_ascii=False, indent=2,
+                    ensure_ascii=False,
+                    indent=2,
                 ),
             )
             try:
                 resp = await runtime.llm.ainvoke(prompt)
                 sql_text = parse_sql_response(resp.text).strip()
                 if runtime.metrics is not None:
-                    runtime.metrics.record_llm_call(LLMCallStat(
-                        node_name="generate_sql",
-                        model=str(getattr(runtime.llm, "model", "mock")),
-                        prompt_tokens=len(prompt) // 2,
-                        completion_tokens=len(resp.text) // 2,
-                        total_tokens=(len(prompt) + len(resp.text)) // 2,
-                        latency_ms=int(getattr(resp, "latency_ms", 0)),
-                        cache_hit=False,
-                    ))
-            except Exception:
+                    runtime.metrics.record_llm_call(
+                        LLMCallStat(
+                            node_name="generate_sql",
+                            model=str(getattr(runtime.llm, "model", "mock")),
+                            prompt_tokens=len(prompt) // 2,
+                            completion_tokens=len(resp.text) // 2,
+                            total_tokens=(len(prompt) + len(resp.text)) // 2,
+                            latency_ms=int(getattr(resp, "latency_ms", 0)),
+                            cache_hit=False,
+                        )
+                    )
+            except Exception as exc:
+                log_node(
+                    "generate_sql",
+                    request_id,
+                    "llm_error",
+                    error=f"{type(exc).__name__}: {str(exc)[:160]}",
+                )
+                if not getattr(runtime.llm, "is_mock", True):
+                    raise RuntimeError("LLM SQL generation failed") from exc
                 sql_text = ""
+
+        if (
+            not sql_text
+            and runtime is not None
+            and runtime.llm is not None
+            and not getattr(runtime.llm, "is_mock", True)
+        ):
+            raise RuntimeError("LLM response did not contain valid SQL")
 
         if not sql_text:
             # Safety net: the original node guaranteed a non-empty SQL. Keep
@@ -237,18 +275,23 @@ async def generate_sql(state: AgentState, config: RunnableConfig | None = None) 
             runtime.metrics.record_sql_generated()
         runtime.nodes_called += 1
 
-    _stream_writer(runtime, {
-        "type": "sql_generated",
-        "sql": sql_text,
-        "request_id": request_id,
-        "cache_hit": cache_hit_sql,
-        "cache_key": cache_key,
-    })
+    _stream_writer(
+        runtime,
+        {
+            "type": "sql_generated",
+            "sql": sql_text,
+            "request_id": request_id,
+            "cache_hit": cache_hit_sql,
+            "cache_key": cache_key,
+        },
+    )
 
     log_node(
-        "generate_sql", request_id,
+        "generate_sql",
+        request_id,
         "cache_hit" if cache_hit_sql else "ok",
-        sql_len=len(sql_text), cache_hit=cache_hit_sql,
+        sql_len=len(sql_text),
+        cache_hit=cache_hit_sql,
     )
 
     return {
@@ -258,11 +301,16 @@ async def generate_sql(state: AgentState, config: RunnableConfig | None = None) 
         # Keep the legacy cache_hit flag in sync so existing consumers still work.
         "cache_hit": cache_hit_sql,
         "pending_stream_events": [
-            {"type": "sql_generated", "sql": sql_text,
-             "request_id": request_id, "cache_hit": cache_hit_sql}
+            {
+                "type": "sql_generated",
+                "sql": sql_text,
+                "request_id": request_id,
+                "cache_hit": cache_hit_sql,
+            }
         ],
         "node_history": history_append(
-            state, "generate_sql",
+            state,
+            "generate_sql",
             "cache_hit" if cache_hit_sql else "ok",
             elapsed,
             extra={

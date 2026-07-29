@@ -1,5 +1,7 @@
 """POST /api/ask - SSE endpoint driving the 12-node LangGraph workflow."""
+
 from __future__ import annotations
+
 import asyncio
 import json
 import time
@@ -10,27 +12,29 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent.context import AgentRuntime
-from app.agent.graph import get_graph
-from app.agent.state import AgentState
 from app.clients.cache_client import QueryCache
 from app.clients.embedding_client import EmbeddingClient
 from app.clients.faiss_client import FAISSStore
 from app.clients.fts5_client import FTS5Store
+from app.clients.history_client import HistoryWriter
 from app.clients.llm_client import LLMClient
 from app.clients.mysql_client import MetadataClient, MySQLClient, MySQLValidator
 from app.core.config import cfg
 from app.core.logger import logger
 from app.core.metrics import get_metrics
 from app.core.request_context import get_request_id, new_request_id
-from app.clients.history_client import HistoryWriter
-
+from app.services.ask_service import build_default_service
 
 router = APIRouter(prefix="/api", tags=["ask"])
 
 
 class AskRequest(BaseModel):
-    query: str = Field(..., description="Natural-language question, in Chinese or English")
-    session_id: str | None = Field(default=None, description="Optional client session id")
+    query: str = Field(
+        ..., description="Natural-language question, in Chinese or English"
+    )
+    session_id: str | None = Field(
+        default=None, description="Optional client session id"
+    )
 
 
 # Shared cache so warm hits survive across requests.
@@ -50,16 +54,47 @@ def _validate_query(q: str) -> str:
 
 
 def _sse(event_type: str, data: dict[str, Any]) -> dict[str, Any]:
-    return {"event": event_type, "data": json.dumps(data, ensure_ascii=False)}
+    return {
+        "event": event_type,
+        "data": json.dumps(data, ensure_ascii=False, default=str),
+    }
+
+
+def _runtime_event_to_sse(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate direct-driver node events to the public SSE protocol."""
+    event_type = str(event.get("type") or "")
+    if event_type == "done":
+        return None
+    if event_type == "validate_sql":
+        ok = bool(event.get("ok"))
+        return _sse(
+            "progress",
+            {
+                "node": "validate_sql",
+                "status": "ok" if ok else "error",
+                "message": "SQL 校验通过" if ok else "SQL 校验失败",
+                "request_id": event.get("request_id"),
+            },
+        )
+    if event_type not in {
+        "progress",
+        "sql_generated",
+        "sql_corrected",
+        "result",
+        "error",
+    }:
+        return None
+    return _sse(
+        event_type,
+        {key: value for key, value in event.items() if key != "type"},
+    )
 
 
 @router.post("/ask")
 async def ask(req: AskRequest):
     query = _validate_query(req.query)
     request_id = (
-        get_request_id()
-        if get_request_id() not in {"", "-"}
-        else new_request_id()
+        get_request_id() if get_request_id() not in {"", "-"} else new_request_id()
     )
     metrics = get_metrics()
     session_id = req.session_id
@@ -71,25 +106,34 @@ async def ask(req: AskRequest):
             _, cached = _shared_cache.get_similar(query)
         if cached is not None:
             metrics.record_cache(hit=True)
-            yield _sse("progress", {"node": "cache", "status": "ok", "message": "命中缓存"})
-            yield _sse("result", cached["result"])
-            cached_result = cached.get("result") or {}
+            yield _sse(
+                "progress", {"node": "cache", "status": "ok", "message": "命中缓存"}
+            )
+            cached_result = dict(cached.get("result") or {})
+            cached_result["cache_hit"] = True
+            if cached.get("sql"):
+                yield _sse("sql_generated", {"sql": cached["sql"], "cache_hit": True})
+            yield _sse("result", cached_result)
             HistoryWriter.record(
                 request_id=request_id,
                 session_id=session_id,
                 query=query,
-                sql_text=None,
+                sql_text=cached.get("sql") or None,
                 status="cache_hit",
                 error_message=None,
                 duration_ms=0,
                 row_count=int(cached_result.get("row_count", 0) or 0),
                 sql_corrected=False,
             )
-            yield _sse("done", {
-                "request_id": request_id,
-                "duration_ms": 0,
-                "cache_hit": True,
-            })
+            yield _sse(
+                "done",
+                {
+                    "request_id": request_id,
+                    "duration_ms": 0,
+                    "cache_hit": True,
+                    "explanation": cached.get("explanation"),
+                },
+            )
             return
         metrics.record_cache(hit=False)
 
@@ -114,67 +158,73 @@ async def ask(req: AskRequest):
         runtime.validator = validator  # type: ignore[attr-defined]
         runtime.metadata = MetadataClient()  # type: ignore[attr-defined]
 
-        graph = get_graph()
-        initial: AgentState = {
-            "query": query,
-            "request_id": request_id,
-            "node_history": [],
-            "validate_attempts": 0,
-            "started_at": time.time(),
-        }
+        service = build_default_service()
 
-        yield _sse("progress", {"node": "start", "status": "running", "message": "开始问数"})
+        yield _sse(
+            "progress", {"node": "start", "status": "running", "message": "开始问数"}
+        )
 
-        final_state: dict[str, Any] = dict(initial)
-        sql_emitted = False
-        corrected_emitted = False
+        final_state: dict[str, Any] = {}
+        pending_index = 0
+        workflow_error: str | None = None
         t_total = time.perf_counter()
+        workflow_task = asyncio.create_task(service.run_question(query, runtime))
         try:
-            async for event in graph.astream(
-                initial, config={"configurable": {"runtime": runtime}}
-            ):
-                for node_name, partial in event.items():
-                    if not isinstance(partial, dict):
-                        continue
-                    final_state.update(partial)
-                    yield _sse("progress", {
-                        "node": node_name,
-                        "status": "running",
-                        "message": f"执行节点 {node_name}",
-                    })
-                    if node_name == "generate_sql" and not sql_emitted and partial.get("sql"):
-                        yield _sse("sql_generated", {"sql": partial["sql"]})
-                        sql_emitted = True
-                    if node_name == "correct_sql" and not corrected_emitted and partial.get("sql"):
-                        yield _sse("sql_corrected", {"sql": partial["sql"]})
-                        corrected_emitted = True
-                    if node_name == "run_sql":
-                        result = partial.get("result") or {}
-                        err = partial.get("error")
-                        if err:
-                            yield _sse("error", {"code": "E001", "message": err})
-                        else:
-                            yield _sse("result", {
-                                "columns": result.get("columns", []),
-                                "rows": result.get("rows", []),
-                                "row_count": result.get("row_count", 0),
-                                "truncated": result.get("truncated", False),
-                            })
+            while not workflow_task.done():
+                while pending_index < len(runtime.pending_events):
+                    event = runtime.pending_events[pending_index]
+                    pending_index += 1
+                    wire_event = _runtime_event_to_sse(event)
+                    if wire_event is not None:
+                        yield wire_event
+                if not workflow_task.done():
+                    await asyncio.sleep(0.01)
+            final_state = await workflow_task
+            while pending_index < len(runtime.pending_events):
+                event = runtime.pending_events[pending_index]
+                pending_index += 1
+                wire_event = _runtime_event_to_sse(event)
+                if wire_event is not None:
+                    yield wire_event
         except asyncio.CancelledError:
-            yield _sse("error", {"code": "E002", "message": "client disconnected"})
+            workflow_task.cancel()
+            try:
+                await workflow_task
+            except asyncio.CancelledError:
+                pass
             raise
         except Exception as e:
-            logger.bind(request_id=request_id).exception("graph failed")
-            yield _sse("error", {"code": "E001", "message": f"{type(e).__name__}: {e}"})
+            workflow_error = f"{type(e).__name__}: {e}"
+            final_state["error"] = workflow_error
+            logger.bind(request_id=request_id).exception("direct workflow failed")
         finally:
             await mysql_dw.aclose()
 
+        if workflow_error:
+            yield _sse(
+                "error",
+                {
+                    "code": "E001",
+                    "message": workflow_error,
+                },
+            )
+
         if final_state.get("result") and not final_state.get("error"):
-            _shared_cache.put(query, {"result": final_state["result"]})
+            _shared_cache.put(
+                query,
+                {
+                    "result": final_state["result"],
+                    "sql": final_state.get("sql"),
+                    "explanation": final_state.get("explanation"),
+                },
+            )
 
         duration_ms = int((time.perf_counter() - t_total) * 1000)
         final_error = final_state.get("error")
         final_result = final_state.get("result") or {}
+        if final_error and not workflow_error:
+            yield _sse("error", {"code": "E001", "message": str(final_error)})
+
         if final_error:
             hist_status = "error"
         elif final_result:
@@ -192,10 +242,15 @@ async def ask(req: AskRequest):
             row_count=int(final_result.get("row_count", 0) or 0),
             sql_corrected=bool(final_state.get("sql_corrected", False)),
         )
-        yield _sse("done", {
-            "request_id": request_id,
-            "duration_ms": duration_ms,
-            "cache_hit": False,
-        })
+        yield _sse(
+            "done",
+            {
+                "request_id": request_id,
+                "duration_ms": duration_ms,
+                "cache_hit": False,
+                "sql": final_state.get("sql"),
+                "explanation": final_state.get("explanation"),
+            },
+        )
 
     return EventSourceResponse(event_gen(), ping=15)

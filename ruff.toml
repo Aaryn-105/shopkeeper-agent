@@ -1,0 +1,4 @@
+[lint]
+ignore = [
+    "BLE001", "S110", "UP045", "UP035", "PERF402", "RUF059", "RUF100", "SIM117",
+]

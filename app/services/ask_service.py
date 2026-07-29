@@ -18,6 +18,7 @@ Two execution modes:
 Both modes share the same public run_question signature so swapping is a
 single argument.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,7 +41,6 @@ from app.agent.nodes.run_sql import run_sql
 from app.agent.nodes.validate_sql import validate_sql
 from app.agent.state import AgentState
 
-
 # Keep validate -> correct_sql retries bounded so a broken query cannot loop
 # forever. Matches graph.MAX_CORRECT_ATTEMPTS = 2 plus one safety pass.
 MAX_VALIDATE_LOOP: int = 3
@@ -49,6 +49,19 @@ MAX_VALIDATE_LOOP: int = 3
 def _config_for(runtime: AgentRuntime) -> dict[str, Any]:
     """Build the RunnableConfig dict the nodes read runtime from."""
     return {"configurable": {"runtime": runtime}}
+
+
+def _queue_progress(runtime: AgentRuntime, node: str) -> None:
+    """Expose direct-driver progress through the queue used by node events."""
+    runtime.pending_events.append(
+        {
+            "type": "progress",
+            "node": node,
+            "status": "running",
+            "message": f"执行节点 {node}",
+            "request_id": runtime.request_id,
+        }
+    )
 
 
 def _merge_update(state: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
@@ -89,8 +102,9 @@ async def _build_coroutine(fn, state, cfg):
     return await _maybe_await(fn, state, cfg)
 
 
-async def _run_direct(question: str, runtime: AgentRuntime,
-                      max_loops: int = MAX_VALIDATE_LOOP) -> dict[str, Any]:
+async def _run_direct(
+    question: str, runtime: AgentRuntime, max_loops: int = MAX_VALIDATE_LOOP
+) -> dict[str, Any]:
     """Run the workflow by calling each node directly with runtime threaded
     through config. Bypasses LangGraph's super-step scheduler."""
     state: dict[str, Any] = {
@@ -102,48 +116,63 @@ async def _run_direct(question: str, runtime: AgentRuntime,
     cfg = _config_for(runtime)
 
     # 1) extract_keywords (single)
+    _queue_progress(runtime, "extract_keywords")
     update = await _maybe_await(extract_keywords, state, cfg)
     state = _merge_update(state, update)
 
     # 2) recall_* parallel fan-out
-    rc, rm, rv = await _run_parallel([
-        _build_coroutine(recall_column, state, cfg),
-        _build_coroutine(recall_metric, state, cfg),
-        _build_coroutine(recall_value, state, cfg),
-    ])
+    for node_name in ("recall_column", "recall_metric", "recall_value"):
+        _queue_progress(runtime, node_name)
+    rc, rm, rv = await _run_parallel(
+        [
+            _build_coroutine(recall_column, state, cfg),
+            _build_coroutine(recall_metric, state, cfg),
+            _build_coroutine(recall_value, state, cfg),
+        ]
+    )
     for u in (rc, rm, rv):
         state = _merge_update(state, u)
 
     # 3) merge (fan-in)
+    _queue_progress(runtime, "merge_retrieved_info")
     update = await _maybe_await(merge_retrieved_info, state, cfg)
     state = _merge_update(state, update)
 
     # 4) filter_table / filter_metric parallel
-    ft, fm = await _run_parallel([
-        _build_coroutine(filter_table, state, cfg),
-        _build_coroutine(filter_metric, state, cfg),
-    ])
+    for node_name in ("filter_table", "filter_metric"):
+        _queue_progress(runtime, node_name)
+    ft, fm = await _run_parallel(
+        [
+            _build_coroutine(filter_table, state, cfg),
+            _build_coroutine(filter_metric, state, cfg),
+        ]
+    )
     state = _merge_update(state, ft)
     state = _merge_update(state, fm)
 
     # 5) add_extra_context
+    _queue_progress(runtime, "add_extra_context")
     update = await _maybe_await(add_extra_context, state, cfg)
     state = _merge_update(state, update)
 
     # 6) generate_sql
+    _queue_progress(runtime, "generate_sql")
     update = await _maybe_await(generate_sql, state, cfg)
     state = _merge_update(state, update)
 
     # 7) validate_sql / correct_sql bounded loop
     for _ in range(max_loops):
+        _queue_progress(runtime, "validate_sql")
         update = await _maybe_await(validate_sql, state, cfg)
         state = _merge_update(state, update)
         if not state.get("sql_error"):
             break
+        _queue_progress(runtime, "correct_sql")
         update = await _maybe_await(correct_sql, state, cfg)
         state = _merge_update(state, update)
 
     # 8) run_sql
+    _queue_progress(runtime, "run_sql")
     update = await _maybe_await(run_sql, state, cfg)
     state = _merge_update(state, update)
 
@@ -192,8 +221,9 @@ class AskService:
     def mode(self) -> str:
         return self._mode
 
-    async def run_question(self, question: str,
-                           runtime: AgentRuntime) -> dict[str, Any]:
+    async def run_question(
+        self, question: str, runtime: AgentRuntime
+    ) -> dict[str, Any]:
         if self._mode == "direct":
             return await _run_direct(question, runtime)
         return await _run_graph(question, runtime)

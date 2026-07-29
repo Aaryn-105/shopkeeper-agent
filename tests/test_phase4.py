@@ -1,5 +1,7 @@
 """Phase 4 verification: 12-node LangGraph workflow, SSE endpoint, cache, validation."""
+
 from __future__ import annotations
+
 import asyncio
 import json
 from typing import Any
@@ -7,7 +9,6 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
 from app.agent.context import AgentRuntime
 from app.agent.graph import build_graph, get_graph
 from app.agent.state import AgentState
@@ -18,9 +19,10 @@ from app.clients.llm_client import LLMClient, _mock_generate
 from app.clients.mysql_client import MetadataClient, MySQLClient, MySQLValidator
 from app.core.config import cfg
 from app.core.metrics import get_metrics
-
+from main import app
 
 # ---------- pure unit tests ----------
+
 
 def test_cache_exact_match_hit_and_miss():
     c = QueryCache(ttl_seconds=60, similarity_threshold=0)
@@ -54,8 +56,7 @@ def test_similarity_helper_is_bounded():
 
 
 def test_llm_client_is_mock_when_api_key_empty():
-    assert str(cfg.llm.api_key) == ""
-    client = LLMClient()
+    client = LLMClient(api_key="", api_base="", model="")
     assert client.is_mock
     # trigger the keyword prompt branch
     resp = asyncio.run(client.ainvoke("Please extend keywords for: total sales"))
@@ -65,9 +66,7 @@ def test_llm_client_is_mock_when_api_key_empty():
 
 
 def test_llm_mock_generates_sql_with_from_clause():
-    sql = _mock_generate(
-        "Generate SQL\ntable_ids: fact_order\nquery: total sales\n"
-    )
+    sql = _mock_generate("Generate SQL\ntable_ids: fact_order\nquery: total sales\n")
     sql_l = sql.lower()
     assert "from fact_order" in sql_l
     assert sql_l.startswith("select")
@@ -95,6 +94,7 @@ def test_fts5_store_round_trip(tmp_path):
 
 # ---------- mysql dw + metadata clients ----------
 
+
 def test_validator_accepts_a_valid_select():
     v = MySQLValidator()
     ok, msg = v.validate("SELECT 1")
@@ -118,13 +118,18 @@ def test_metadata_client_returns_expected_counts():
     md = MetadataClient()
     tables = md.list_tables()
     assert {t["id"] for t in tables} >= {
-        "fact_order", "dim_customer", "dim_product", "dim_region", "dim_date"
+        "fact_order",
+        "dim_customer",
+        "dim_product",
+        "dim_region",
+        "dim_date",
     }
     cols = md.list_columns("fact_order")
     assert any(c["name"] == "order_amount" for c in cols)
 
 
 # ---------- per-node tests ----------
+
 
 def _make_runtime() -> AgentRuntime:
     """Build an AgentRuntime with the V1.0 FAISS shape used by phase 6.2 nodes.
@@ -138,33 +143,41 @@ def _make_runtime() -> AgentRuntime:
         is_indexed = True
 
         def search(self, vec, top_k):  # noqa: ARG002
-            return [{
-                "id": "fact_order.order_amount",
-                "name": "order_amount",
-                "type": "decimal(10,2)",
-                "role": "measure",
-                "description": "order amount total",
-                "table_id": "fact_order",
-                "_score": 0.91,
-            }]
+            return [
+                {
+                    "id": "fact_order.order_amount",
+                    "name": "order_amount",
+                    "type": "decimal(10,2)",
+                    "role": "measure",
+                    "description": "order amount total",
+                    "table_id": "fact_order",
+                    "_score": 0.91,
+                }
+            ]
 
     class _FakeMetricColl:
         is_indexed = True
 
         def search(self, vec, top_k):  # noqa: ARG002
-            return [{
-                "id": "GMV",
-                "name": "GMV",
-                "type": "decimal(20,2)",
-                "description": "gross merchandise value",
-                "table_id": "fact_order",
-                "_score": 0.88,
-            }]
+            return [
+                {
+                    "id": "GMV",
+                    "name": "GMV",
+                    "type": "decimal(20,2)",
+                    "description": "gross merchandise value",
+                    "table_id": "fact_order",
+                    "_score": 0.88,
+                }
+            ]
 
-    fake_faiss = type("F", (), {
-        "column_info": _FakeColl(),
-        "metric_info": _FakeMetricColl(),
-    })()
+    fake_faiss = type(
+        "F",
+        (),
+        {
+            "column_info": _FakeColl(),
+            "metric_info": _FakeMetricColl(),
+        },
+    )()
 
     runtime = AgentRuntime(
         request_id="test-rid",
@@ -183,8 +196,12 @@ def _make_runtime() -> AgentRuntime:
 
 def test_extract_keywords_node_uses_jieba():
     from app.agent.nodes.extract_keywords import extract_keywords
+
     runtime = _make_runtime()
-    state: AgentState = {"query": "sales total north region 2025", "request_id": "test-rid"}
+    state: AgentState = {
+        "query": "sales total north region 2025",
+        "request_id": "test-rid",
+    }
     cfg_obj = {"configurable": {"runtime": runtime}}
     out = extract_keywords(state, cfg_obj)
     assert "keywords" in out
@@ -194,6 +211,7 @@ def test_extract_keywords_node_uses_jieba():
 
 def test_recall_value_node_finds_region_match_via_meta_fallback():
     from app.agent.nodes.recall_value import recall_value
+
     runtime = _make_runtime()
     state: AgentState = {
         "query": "test value node",
@@ -212,6 +230,7 @@ def test_recall_value_node_finds_region_match_via_meta_fallback():
 
 def test_recall_metric_node_returns_metrics():
     from app.agent.nodes.recall_metric import recall_metric
+
     runtime = _make_runtime()
     state: AgentState = {
         "query": "GMV sales total",
@@ -226,6 +245,7 @@ def test_recall_metric_node_returns_metrics():
 
 def test_recall_column_node_returns_columns():
     from app.agent.nodes.recall_column import recall_column
+
     runtime = _make_runtime()
     state: AgentState = {
         "query": "order_amount total",
@@ -240,16 +260,22 @@ def test_recall_column_node_returns_columns():
 
 def test_merge_node_groups_columns_by_table_and_includes_pk_fk():
     from app.agent.nodes.merge_retrieved_info import merge_retrieved_info
+
     runtime = _make_runtime()
     state: AgentState = {
         "query": "fact_order",
         "request_id": "test-rid",
         "keywords": [],
-        "retrieved_columns": [{
-            "id": "fact_order.order_amount", "name": "order_amount",
-            "type": "decimal(10,2)", "role": "measure",
-            "description": "amount", "table_id": "fact_order",
-        }],
+        "retrieved_columns": [
+            {
+                "id": "fact_order.order_amount",
+                "name": "order_amount",
+                "type": "decimal(10,2)",
+                "role": "measure",
+                "description": "amount",
+                "table_id": "fact_order",
+            }
+        ],
         "retrieved_metrics": [],
         "retrieved_values": [],
     }
@@ -264,6 +290,7 @@ def test_merge_node_groups_columns_by_table_and_includes_pk_fk():
 
 def test_add_extra_context_node_records_db_version():
     from app.agent.nodes.add_extra_context import add_extra_context
+
     runtime = _make_runtime()
     state: AgentState = {"query": "x", "request_id": "test-rid"}
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -281,6 +308,7 @@ def test_add_extra_context_node_records_db_version():
 
 def test_generate_sql_node_returns_non_empty_sql():
     from app.agent.nodes.generate_sql import generate_sql
+
     runtime = _make_runtime()
     state: AgentState = {
         "query": "total sales by region",
@@ -297,9 +325,11 @@ def test_generate_sql_node_returns_non_empty_sql():
 
 def test_validate_sql_node_accepts_a_known_good_sql():
     from app.agent.nodes.validate_sql import validate_sql
+
     runtime = _make_runtime()
     state: AgentState = {
-        "query": "x", "request_id": "test-rid",
+        "query": "x",
+        "request_id": "test-rid",
         "sql": "SELECT order_id FROM fact_order LIMIT 5",
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -310,9 +340,11 @@ def test_validate_sql_node_accepts_a_known_good_sql():
 
 def test_validate_sql_node_flags_a_bad_sql():
     from app.agent.nodes.validate_sql import validate_sql
+
     runtime = _make_runtime()
     state: AgentState = {
-        "query": "x", "request_id": "test-rid",
+        "query": "x",
+        "request_id": "test-rid",
         "sql": "SELECT no_such_col FROM fact_order",
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -322,10 +354,12 @@ def test_validate_sql_node_flags_a_bad_sql():
 
 def test_run_sql_node_executes_against_dw_and_returns_rows():
     from app.agent.nodes.run_sql import run_sql
+
     runtime = _make_runtime()
     runtime.mysql_dw = MySQLClient()
     state: AgentState = {
-        "query": "x", "request_id": "test-rid",
+        "query": "x",
+        "request_id": "test-rid",
         "sql": "SELECT COUNT(*) AS n FROM fact_order",
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -336,13 +370,12 @@ def test_run_sql_node_executes_against_dw_and_returns_rows():
     asyncio.run(runtime.mysql_dw.aclose())
 
 
-
-
 # ---------- phase 4 close-out: column fallback, validate path, error recovery, e2e ----------
 
 
 class _StubMysqlEmptyColumns:
     """Returns rows but no column metadata - exercises MySQLClient fallback."""
+
     async def execute_readonly(self, sql: str, max_rows: int = 1000):
         return {
             "columns": [],  # mimics SQLAlchemy when alias-less aggregate
@@ -359,6 +392,7 @@ class _StubMysqlBoom:
 
 class _StubMysqlDupColumn:
     """Returns duplicate placeholder names - ensures row passthrough works."""
+
     async def execute_readonly(self, sql: str, max_rows: int = 1000):
         return {
             "columns": ["a", "b"],
@@ -371,17 +405,30 @@ class _StubMysqlDupColumn:
 def test_mysql_client_falls_back_to_placeholder_columns_when_keys_empty():
     # unit test at the client layer (no real dw needed)
     from app.clients.mysql_client import MySQLClient
+
     client = MySQLClient()
+
     # monkey-patch _ensure_engine via direct replace; simplest is async adapter
     class _Adapter:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
         async def execute(self, stmt):
             class _R:
-                def fetchall(inner_self): return [(42,)]
-                def keys(inner_self): return []
+                def fetchall(inner_self):
+                    return [(42,)]
+
+                def keys(inner_self):
+                    return []
+
             return _R()
-    client._ensure_engine = lambda: type("E", (), {"connect": staticmethod(lambda: _Adapter())})()
+
+    client._ensure_engine = lambda: type(
+        "E", (), {"connect": staticmethod(lambda: _Adapter())}
+    )()
     out = asyncio.run(client.execute_readonly("SELECT COUNT(*) FROM fact_order"))
     assert out["row_count"] == 1
     assert out["columns"] == ["col_0"]
@@ -390,10 +437,12 @@ def test_mysql_client_falls_back_to_placeholder_columns_when_keys_empty():
 
 def test_run_sql_node_returns_real_columns_from_dw():
     from app.agent.nodes.run_sql import run_sql
+
     runtime = _make_runtime()
     runtime.mysql_dw = MySQLClient()
     state: AgentState = {
-        "query": "x", "request_id": "test-rid",
+        "query": "x",
+        "request_id": "test-rid",
         "sql": "SELECT date_id, order_amount FROM fact_order LIMIT 3",
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -409,10 +458,12 @@ def test_run_sql_node_returns_real_columns_from_dw():
 
 def test_run_sql_node_handles_mysql_exception_gracefully():
     from app.agent.nodes.run_sql import run_sql
+
     runtime = _make_runtime()
     runtime.mysql_dw = _StubMysqlBoom()  # type: ignore[assignment]
     state: AgentState = {
-        "query": "x", "request_id": "test-rid",
+        "query": "x",
+        "request_id": "test-rid",
         "sql": "SELECT 1",
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -426,10 +477,12 @@ def test_run_sql_node_handles_mysql_exception_gracefully():
 
 def test_run_sql_node_applies_column_fallback_via_stub():
     from app.agent.nodes.run_sql import run_sql
+
     runtime = _make_runtime()
     runtime.mysql_dw = _StubMysqlEmptyColumns()  # type: ignore[assignment]
     state: AgentState = {
-        "query": "x", "request_id": "test-rid",
+        "query": "x",
+        "request_id": "test-rid",
         "sql": "SELECT COUNT(*) FROM fact_order",
     }
     cfg_obj = {"configurable": {"runtime": runtime}}
@@ -458,14 +511,19 @@ def test_graph_skips_correct_sql_when_validate_passes():
     graph = build_graph()
     # patch mock LLM to emit a known-good SELECT
     import app.clients.llm_client as llm_module
+
     original = llm_module._mock_generate
     llm_module._mock_generate = lambda prompt: "SELECT order_id FROM fact_order LIMIT 5"
     try:
-        final = asyncio.run(graph.ainvoke(initial, config={"configurable": {"runtime": runtime}}))
+        final = asyncio.run(
+            graph.ainvoke(initial, config={"configurable": {"runtime": runtime}})
+        )
     finally:
         llm_module._mock_generate = original
     nodes_called = [h["node"] for h in final["node_history"]]
-    assert "correct_sql" not in nodes_called, f"correct_sql ran unexpectedly: {nodes_called}"
+    assert "correct_sql" not in nodes_called, (
+        f"correct_sql ran unexpectedly: {nodes_called}"
+    )
     assert final.get("result")["row_count"] >= 0
     asyncio.run(runtime.mysql_dw.aclose())
 
@@ -481,11 +539,14 @@ def test_graph_runs_correct_sql_loop_when_validate_fails():
     }
     graph = build_graph()
     import app.clients.llm_client as llm_module
+
     original = llm_module._mock_generate
     # emit SQL that fails validate (nonexistent column)
     llm_module._mock_generate = lambda prompt: "SELECT bogus_col FROM fact_order"
     try:
-        final = asyncio.run(graph.ainvoke(initial, config={"configurable": {"runtime": runtime}}))
+        final = asyncio.run(
+            graph.ainvoke(initial, config={"configurable": {"runtime": runtime}})
+        )
     finally:
         llm_module._mock_generate = original
     nodes_called = [h["node"] for h in final["node_history"]]
@@ -508,12 +569,17 @@ def test_graph_handles_generate_sql_exception_with_state_error():
     }
     graph = build_graph()
     import app.agent.nodes.generate_sql as gen_module
+
     original_ainvoke = gen_module.generate_sql
+
     async def boom(state, config=None):
         raise RuntimeError("simulated LLM outage")
+
     gen_module.generate_sql = boom
     try:
-        final = asyncio.run(graph.ainvoke(initial, config={"configurable": {"runtime": runtime}}))
+        final = asyncio.run(
+            graph.ainvoke(initial, config={"configurable": {"runtime": runtime}})
+        )
     except RuntimeError:
         # acceptable: node throws and graph bubbles up
         gen_module.generate_sql = original_ainvoke
@@ -522,7 +588,9 @@ def test_graph_handles_generate_sql_exception_with_state_error():
     finally:
         gen_module.generate_sql = original_ainvoke
     # if graph catches the exception and continues, error must be surfaced
-    assert final.get("error") or final.get("node_history") != initial.get("node_history")
+    assert final.get("error") or final.get("node_history") != initial.get(
+        "node_history"
+    )
     asyncio.run(runtime.mysql_dw.aclose())
 
 
@@ -559,6 +627,7 @@ def test_api_ask_full_event_payload_protocol_complete():
 
 # ---------- end-to-end graph ----------
 
+
 def test_end_to_end_graph_runs_all_12_nodes():
     runtime = _make_runtime()
     runtime.mysql_dw = MySQLClient()
@@ -569,12 +638,22 @@ def test_end_to_end_graph_runs_all_12_nodes():
         "validate_attempts": 0,
     }
     graph = build_graph()
-    final = asyncio.run(graph.ainvoke(initial, config={"configurable": {"runtime": runtime}}))
+    final = asyncio.run(
+        graph.ainvoke(initial, config={"configurable": {"runtime": runtime}})
+    )
     history_nodes = {h["node"] for h in final.get("node_history", [])}
     expected = {
-        "extract_keywords", "recall_column", "recall_metric", "recall_value",
-        "merge_retrieved_info", "filter_table", "filter_metric",
-        "add_extra_context", "generate_sql", "validate_sql", "run_sql",
+        "extract_keywords",
+        "recall_column",
+        "recall_metric",
+        "recall_value",
+        "merge_retrieved_info",
+        "filter_table",
+        "filter_metric",
+        "add_extra_context",
+        "generate_sql",
+        "validate_sql",
+        "run_sql",
     }
     assert expected <= history_nodes, f"missing: {expected - history_nodes}"
     assert final.get("sql")
@@ -596,6 +675,7 @@ def test_graph_compiled_get_graph_returns_same_singleton():
 
 
 # ---------- /api/ask endpoint ----------
+
 
 def _collect_sse_events(response) -> list[dict[str, Any]]:
     chunks: list[dict[str, Any]] = []
@@ -640,6 +720,10 @@ def test_api_ask_streams_sse_events_for_valid_query():
     assert "sql_generated" in types
     assert "result" in types
     assert "done" in types
+    result = next(c for c in chunks if c.get("type") == "result")
+    assert result.get("columns") != ["placeholder"]
+    assert result.get("rows") != [["no_mysql_dw_attached"]]
+
     done = next(c for c in chunks if c.get("type") == "done")
     assert done.get("request_id")
 

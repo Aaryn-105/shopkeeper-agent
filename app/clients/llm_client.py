@@ -8,7 +8,9 @@ prompt before scanning for phrase matches, so dictionary phrases like
 "\u534e\u4e1c" only fire when the user actually asked about "\u534e\u4e1c"
 rather than when an alias appears inside the filtered_table_infos JSON dump.
 """
+
 from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass
@@ -29,26 +31,34 @@ class LLMResponse:
 class LLMClient:
     """Thin wrapper around ChatOpenAI; falls back to a deterministic mock."""
 
-    def __init__(self, model: Optional[str] = None,
-                 api_base: Optional[str] = None,
-                 api_key: Optional[str] = None,
-                 temperature: Optional[float] = None,
-                 max_tokens: Optional[int] = None) -> None:
-        self.model = model or cfg.llm.model or "mock-llm"
-        self.api_base = api_base or cfg.llm.api_base
-        self.api_key = api_key or cfg.llm.api_key
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        api_base: Optional[str] = None,
+        api_key: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> None:
+        self.model = (model if model is not None else cfg.llm.model) or "mock-llm"
+        self.api_base = api_base if api_base is not None else cfg.llm.api_base
+        self.api_key = api_key if api_key is not None else cfg.llm.api_key
+        if isinstance(self.api_key, str):
+            self.api_key = self.api_key.strip()
         self.temperature = (
-            float(temperature) if temperature is not None
+            float(temperature)
+            if temperature is not None
             else float(cfg.llm.temperature)
         )
         self.max_tokens = (
-            int(max_tokens) if max_tokens is not None
-            else int(cfg.llm.max_tokens)
+            int(max_tokens) if max_tokens is not None else int(cfg.llm.max_tokens)
         )
         self._real = None
         if self.api_key:  # noqa: SIM105
             try:
-                from langchain_openai import ChatOpenAI  # pylint: disable=import-outside-toplevel
+                from langchain_openai import (
+                    ChatOpenAI,  # pylint: disable=import-outside-toplevel
+                )
+
                 self._real = ChatOpenAI(
                     model=self.model,
                     api_key=self.api_key,
@@ -61,7 +71,7 @@ class LLMClient:
 
     @property
     def is_mock(self) -> bool:
-        return self._real is None
+        return not bool(self.api_key)
 
     async def ainvoke(  # pylint: disable=unused-argument
         self,
@@ -79,7 +89,8 @@ class LLMClient:
                 cache_hit=False,
             )
         # pylint: disable=import-outside-toplevel
-        from langchain_core.messages import SystemMessage, HumanMessage
+        from langchain_core.messages import HumanMessage, SystemMessage
+
         msgs = []
         if system:
             msgs.append(SystemMessage(content=system))
@@ -104,14 +115,41 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
     # holds the province (\u4e0a\u6d77) and dim_region.region_name holds the
     # da-qu (\u534e\u4e1c). Questions like "\u534e\u4e1c GMV" map to all
     # provinces in the \u534e\u4e1c da-qu.
-    "华东": ("dim_region", "province", ["\u4e0a\u6d77", "\u6c5f\u82cf", "\u6d59\u6c5f"]),
-    "华北": ("dim_region", "province", ["\u5317\u4eac", "\u5929\u6d25", "\u6cb3\u5317"]),
-    "华南": ("dim_region", "province", ["\u5e7f\u4e1c", "\u5e7f\u897f", "\u6d77\u5357"]),
-    "华中": ("dim_region", "province", ["\u6e56\u5317", "\u6e56\u5357", "\u6cb3\u5357"]),
-    "西南": ("dim_region", "province", ["\u56db\u5ddd", "\u91cd\u5e86", "\u4e91\u5357"]),
-    "西北": ("dim_region", "province", ["\u9655\u897f", "\u7518\u8083", "\u65b0\u7586"]),
-    "东北": ("dim_region", "province", ["\u8fbd\u5b81", "\u5409\u6797", "\u9ed1\u9f99\u6c5f"]),
-
+    "华东": (
+        "dim_region",
+        "province",
+        ["\u4e0a\u6d77", "\u6c5f\u82cf", "\u6d59\u6c5f"],
+    ),
+    "华北": (
+        "dim_region",
+        "province",
+        ["\u5317\u4eac", "\u5929\u6d25", "\u6cb3\u5317"],
+    ),
+    "华南": (
+        "dim_region",
+        "province",
+        ["\u5e7f\u4e1c", "\u5e7f\u897f", "\u6d77\u5357"],
+    ),
+    "华中": (
+        "dim_region",
+        "province",
+        ["\u6e56\u5317", "\u6e56\u5357", "\u6cb3\u5357"],
+    ),
+    "西南": (
+        "dim_region",
+        "province",
+        ["\u56db\u5ddd", "\u91cd\u5e86", "\u4e91\u5357"],
+    ),
+    "西北": (
+        "dim_region",
+        "province",
+        ["\u9655\u897f", "\u7518\u8083", "\u65b0\u7586"],
+    ),
+    "东北": (
+        "dim_region",
+        "province",
+        ["\u8fbd\u5b81", "\u5409\u6797", "\u9ed1\u9f99\u6c5f"],
+    ),
     # ---- member_level (real values: \u666e\u901a\u4f1a\u5458 / \u94f6\u5361\u4f1a\u5458 /
     # \u9ec4\u91d1\u4f1a\u5458 / \u94b6\u77f3\u4f1a\u5458)
     "钻石": ("dim_customer", "member_level", ["\u94b6\u77f3\u4f1a\u5458"]),
@@ -120,7 +158,6 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
     "银卡": ("dim_customer", "member_level", ["\u94f6\u5361\u4f1a\u5458"]),
     "白银": ("dim_customer", "member_level", ["\u94f6\u5361\u4f1a\u5458"]),
     "普通": ("dim_customer", "member_level", ["\u666e\u901a\u4f1a\u5458"]),
-
     # ---- product category (\u5bb6\u7528\u7535\u5668 / \u624b\u673a\u6570\u7801 / \u670d\u9970\u978b\u5305 / \u7535\u8111\u529e\u516c)  # pylint: disable=line-too-long
     "手机": ("dim_product", "category", ["\u624b\u673a\u6570\u7801"]),
     "电脑": ("dim_product", "category", ["\u7535\u8111\u529e\u516c"]),
@@ -131,7 +168,6 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
     "服饰鞋包": ("dim_product", "category", ["\u670d\u9970\u978b\u5305"]),
     "服饰": ("dim_product", "category", ["\u670d\u9970\u978b\u5305"]),
     "鞋包": ("dim_product", "category", ["\u670d\u9970\u978b\u5305"]),
-
     # ---- product brand (\u534e\u4e3a / \u5c0f\u7c73 / \u8054\u60f3 / \u4e09\u661f / \u82f9\u679c)
     "华为": ("dim_product", "brand", ["\u534e\u4e3a"]),
     "小米": ("dim_product", "brand", ["\u5c0f\u7c73"]),
@@ -139,13 +175,11 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
     "三星": ("dim_product", "brand", ["\u4e09\u661f"]),
     "苹果": ("dim_product", "brand", ["\u82f9\u679c"]),
     "苹果手机": ("dim_product", "brand", ["\u82f9\u679c"]),
-
     # ---- gender (M / F)
     "男": ("dim_customer", "gender", ["M"]),
     "女": ("dim_customer", "gender", ["F"]),
     "男性": ("dim_customer", "gender", ["M"]),
     "女性": ("dim_customer", "gender", ["F"]),
-
     # ---- metric hints
     "GMV": ("GMV", "order_amount", ["SUM"]),
     "AOV": ("AOV", "order_amount", ["AVG"]),
@@ -175,38 +209,47 @@ _PHRASES: dict[str, tuple[str, str, list[str]]] = {
 
 # Time-window phrases: each maps to a WHERE-clause fragment against dim_date.
 _TIME_PHRASES: list[tuple[list[str], str]] = [
-    (["\u4e0a\u6708", "\u4e0a\u4e2a\u6708", "\u4e0a\u4e00\u4e2a\u6708", "\u4e0a\u4e2a\u6708\u4efd"],
-     "MONTH(d.date_id_str) = MONTH(CURDATE() - INTERVAL 1 MONTH) AND YEAR(d.date_id_str) = YEAR(CURDATE() - INTERVAL 1 MONTH)"),  # pylint: disable=line-too-long
-    (["\u4e0a\u5b63\u5ea6", "\u4e0a\u4e00\u5b63\u5ea6", "\u4e0a\u4e2a\u5b63\u5ea6"],
-     "d.quarter = CONCAT('Q', QUARTER(CURDATE() - INTERVAL 3 MONTH))"),
-    (["\u672c\u5e74", "\u4eca\u5e74"],
-     "YEAR(d.date_id_str) = YEAR(CURDATE())"),
-    (["\u53bb\u5e74", "\u4e0a\u5e74"],
-     "YEAR(d.date_id_str) = YEAR(CURDATE()) - 1"),
-    (["\u6700\u8fd130\u5929", "\u8fd130\u5929", "\u4ec530\u5929", "\u8fc7\u53bb30\u5929"],
-     "d.date_id_str >= CURDATE() - INTERVAL 30 DAY"),
-    (["\u6700\u8fd17\u5929", "\u8fd17\u5929", "\u4ec57\u5929"],
-     "d.date_id_str >= CURDATE() - INTERVAL 7 DAY"),
-    (["\u7b2c\u4e00\u5b63\u5ea6"],
-     "d.quarter = 'Q1'"),
-    (["\u7b2c\u4e8c\u5b63\u5ea6"],
-     "d.quarter = 'Q2'"),
-    (["\u7b2c\u4e09\u5b63\u5ea6"],
-     "d.quarter = 'Q3'"),
-    (["\u7b2c\u56db\u5b63\u5ea6"],
-     "d.quarter = 'Q4'"),
-    (["Q1"],
-     "d.quarter = 'Q1'"),
-    (["Q2"],
-     "d.quarter = 'Q2'"),
-    (["Q3"],
-     "d.quarter = 'Q3'"),
-    (["Q4"],
-     "d.quarter = 'Q4'"),
+    (
+        [
+            "\u4e0a\u6708",
+            "\u4e0a\u4e2a\u6708",
+            "\u4e0a\u4e00\u4e2a\u6708",
+            "\u4e0a\u4e2a\u6708\u4efd",
+        ],
+        "MONTH(d.date_id_str) = MONTH(CURDATE() - INTERVAL 1 MONTH) AND YEAR(d.date_id_str) = YEAR(CURDATE() - INTERVAL 1 MONTH)",
+    ),  # pylint: disable=line-too-long
+    (
+        ["\u4e0a\u5b63\u5ea6", "\u4e0a\u4e00\u5b63\u5ea6", "\u4e0a\u4e2a\u5b63\u5ea6"],
+        "d.quarter = CONCAT('Q', QUARTER(CURDATE() - INTERVAL 3 MONTH))",
+    ),
+    (["\u672c\u5e74", "\u4eca\u5e74"], "YEAR(d.date_id_str) = YEAR(CURDATE())"),
+    (["\u53bb\u5e74", "\u4e0a\u5e74"], "YEAR(d.date_id_str) = YEAR(CURDATE()) - 1"),
+    (
+        [
+            "\u6700\u8fd130\u5929",
+            "\u8fd130\u5929",
+            "\u4ec530\u5929",
+            "\u8fc7\u53bb30\u5929",
+        ],
+        "d.date_id_str >= CURDATE() - INTERVAL 30 DAY",
+    ),
+    (
+        ["\u6700\u8fd17\u5929", "\u8fd17\u5929", "\u4ec57\u5929"],
+        "d.date_id_str >= CURDATE() - INTERVAL 7 DAY",
+    ),
+    (["\u7b2c\u4e00\u5b63\u5ea6"], "d.quarter = 'Q1'"),
+    (["\u7b2c\u4e8c\u5b63\u5ea6"], "d.quarter = 'Q2'"),
+    (["\u7b2c\u4e09\u5b63\u5ea6"], "d.quarter = 'Q3'"),
+    (["\u7b2c\u56db\u5b63\u5ea6"], "d.quarter = 'Q4'"),
+    (["Q1"], "d.quarter = 'Q1'"),
+    (["Q2"], "d.quarter = 'Q2'"),
+    (["Q3"], "d.quarter = 'Q3'"),
+    (["Q4"], "d.quarter = 'Q4'"),
 ]
 
 
 # ---------- prompt introspection ----------
+
 
 def _extract_user_query(prompt: str) -> str:
     """Pull the user question out of a generate_sql / correct_sql prompt.
@@ -292,7 +335,36 @@ def _detect_group_by(query: str):
     """Return list of (alias, sql_expression) for GROUP BY columns."""
     out = []
     # Triggers: explicit aggregation / partition keywords
-    triggers = ["\u6309", "GROUP", "group", "\u5404", "\u5206\u7ec4", "\u5404\u4e2a", "\u6bd4\u4f8b", "\u5360\u6bd4", "\u5404\u4e2a\u6708", "\u6708\u4efd", "\u5b63\u5ea6", "\u5e74\u4efd", "\u6bcf\u4e2a\u6708", "\u6bcf\u6708", "\u6bcf\u5b63\u5ea6", "\u6bcf\u5e74", "\u6bcf", "\u5404\u54c1\u7c7b", "\u5404\u5927\u533a", "\u8d8b\u52bf", "\u5bf9\u6bd4", "\u6027\u522b", "\u591a\u5c11", "\u603b\u91cf", "\u9500\u91cf", "\u6708", "\u6700\u9ad8", "\u6700\u591a"]  # pylint: disable=line-too-long
+    triggers = [
+        "\u6309",
+        "GROUP",
+        "group",
+        "\u5404",
+        "\u5206\u7ec4",
+        "\u5404\u4e2a",
+        "\u6bd4\u4f8b",
+        "\u5360\u6bd4",
+        "\u5404\u4e2a\u6708",
+        "\u6708\u4efd",
+        "\u5b63\u5ea6",
+        "\u5e74\u4efd",
+        "\u6bcf\u4e2a\u6708",
+        "\u6bcf\u6708",
+        "\u6bcf\u5b63\u5ea6",
+        "\u6bcf\u5e74",
+        "\u6bcf",
+        "\u5404\u54c1\u7c7b",
+        "\u5404\u5927\u533a",
+        "\u8d8b\u52bf",
+        "\u5bf9\u6bd4",
+        "\u6027\u522b",
+        "\u591a\u5c11",
+        "\u603b\u91cf",
+        "\u9500\u91cf",
+        "\u6708",
+        "\u6700\u9ad8",
+        "\u6700\u591a",
+    ]  # pylint: disable=line-too-long
     needs_group = any(kw in query for kw in triggers)
 
     # Rules: keyword -> SQL expression to GROUP BY
@@ -349,8 +421,24 @@ def _detect_order_limit(query: str) -> tuple[Optional[str], Optional[int]]:
         return "DESC", limit
     return None, None
 
+
 def _wants_aggregate(query: str) -> bool:
-    if any(kw in query for kw in ["\u591a\u5c11", "\u603b", "\u5e73\u5747", "\u5360\u6bd4", "\u6bd4\u4f8b", "\u7387", "\u989d", "\u6570", "\u9500\u552e\u989d", "\u8ba2\u5355\u6570", "\u5ba2\u5355\u4ef7"]):  # pylint: disable=line-too-long
+    if any(
+        kw in query
+        for kw in [
+            "\u591a\u5c11",
+            "\u603b",
+            "\u5e73\u5747",
+            "\u5360\u6bd4",
+            "\u6bd4\u4f8b",
+            "\u7387",
+            "\u989d",
+            "\u6570",
+            "\u9500\u552e\u989d",
+            "\u8ba2\u5355\u6570",
+            "\u5ba2\u5355\u4ef7",
+        ]
+    ):  # pylint: disable=line-too-long
         return True
     for phrase, (tbl, _, _) in _PHRASES.items():
         if tbl in _METRIC_PHRASES and phrase in query:
@@ -358,10 +446,13 @@ def _wants_aggregate(query: str) -> bool:
     return False
 
 
-
 def _build_ratio_sql(query: str, joins: list[str], wheres: list[str]) -> Optional[str]:
     """Build a ratio SQL (\u5360\u6bd4/\u6bd4\u4f8b/\u603b\u5360) when the user asks for percentage."""  # pylint: disable=line-too-long
-    ratio_kw = [chr(0x5360) + chr(0x6bd4), chr(0x6bd4) + chr(0x4f8b), chr(0x603b) + chr(0x5360)]
+    ratio_kw = [
+        chr(0x5360) + chr(0x6BD4),
+        chr(0x6BD4) + chr(0x4F8B),
+        chr(0x603B) + chr(0x5360),
+    ]
     if not any(kw in query for kw in ratio_kw):
         return None
     # CASE WHEN for filter column, denominator = full sum
@@ -387,17 +478,20 @@ def _build_ratio_sql(query: str, joins: list[str], wheres: list[str]) -> Optiona
     sql = ["SELECT " + case_clauses[0], "FROM fact_order f"]
     for j in joins:
         sql.append(j)
-    return chr(0x0a).join(sql)
+    return chr(0x0A).join(sql)
 
 
 # ---------- main mock entrypoint ----------
+
 
 def _mock_generate(prompt: str) -> str:
     p = prompt.strip()
     head = p[:80]
     query = _extract_user_query(prompt)
 
-    if "\u5173\u952e\u8bcd" in head and ("\u6269\u5c55" in head or "\u63d0\u53d6" in head):
+    if "\u5173\u952e\u8bcd" in head and (
+        "\u6269\u5c55" in head or "\u63d0\u53d6" in head
+    ):
         kws = _extract_keywords_from_prompt(prompt)
         return json.dumps({"keywords": kws}, ensure_ascii=False)
 
@@ -442,7 +536,9 @@ def _mock_generate(prompt: str) -> str:
         metric, measure_fn, measure_col = _detect_measure(query)
 
         # \u5ba2\u5355\u4ef7 / \u5747\u4ef7 short-circuit
-        if metric is None and any(kw in query for kw in ["\u5ba2\u5355\u4ef7", "\u5747\u4ef7"]):
+        if metric is None and any(
+            kw in query for kw in ["\u5ba2\u5355\u4ef7", "\u5747\u4ef7"]
+        ):
             metric = "AOV"
             measure_fn = "AVG"
             measure_col = "f.order_amount"
@@ -450,7 +546,12 @@ def _mock_generate(prompt: str) -> str:
         if not _wants_aggregate(query) and not group_cols:
             select_parts = ["COUNT(*) AS cnt"]
         else:
-            metric_alias = {"GMV": "gmv", "ORDER_CNT": "cnt", "AOV": "aov", "QTY": ("avg_qty" if measure_fn == "AVG" else "total_qty")}.get(metric, "value")  # pylint: disable=line-too-long
+            metric_alias = {
+                "GMV": "gmv",
+                "ORDER_CNT": "cnt",
+                "AOV": "aov",
+                "QTY": ("avg_qty" if measure_fn == "AVG" else "total_qty"),
+            }.get(metric, "value")  # pylint: disable=line-too-long
             select_parts = [f"{measure_fn}({measure_col}) AS {metric_alias}"]
             for alias, expr in group_cols:
                 select_parts.append(f"{expr} AS {alias}")
@@ -468,7 +569,12 @@ def _mock_generate(prompt: str) -> str:
         if group_cols:
             sql_parts.append("GROUP BY " + ", ".join(expr for _, expr in group_cols))
         if order_dir and (metric is not None or group_cols):
-            order_alias = {"GMV": "gmv", "ORDER_CNT": "cnt", "AOV": "aov", "QTY": "total_qty"}.get(metric, "value")  # pylint: disable=line-too-long
+            order_alias = {
+                "GMV": "gmv",
+                "ORDER_CNT": "cnt",
+                "AOV": "aov",
+                "QTY": "total_qty",
+            }.get(metric, "value")  # pylint: disable=line-too-long
             sql_parts.append(f"ORDER BY {order_alias} {order_dir}")
         if limit and limit <= 1000:
             sql_parts.append(f"LIMIT {limit}")

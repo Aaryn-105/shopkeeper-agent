@@ -20,7 +20,7 @@ export function HomePage() {
   const [latestSql, setLatestSql] = useState<string | null>(null);
   const [latestExplanation, setLatestExplanation] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const aborterRef = useRef<AbortController | null>(null);
+  const aborterRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     api
@@ -72,11 +72,11 @@ export function HomePage() {
         onClose: () => setRunning(false),
       },
     );
-    aborterRef.current = handle.abort as unknown as AbortController;
+    aborterRef.current = handle.abort;
   }
 
   function cancel() {
-    aborterRef.current?.abort();
+    aborterRef.current?.();
   }
 
   function useSample(q: string) {
