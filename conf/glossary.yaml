@@ -1,0 +1,166 @@
+# Business Glossary (业务词典).
+#
+# This file is injected into the generate_sql node prompt under the
+# "业务词典" section. Each entry is matched against the user query by
+# substring (key + aliases). Modify here whenever a date expression,
+# region hierarchy, or metric formula changes.
+#
+# Conventions:
+#   - key is the canonical name (most common user phrasing)
+#   - aliases: list of synonyms / variant spellings
+#   - SQL uses MySQL 8.0 syntax with project alias prefixes:
+#       f.order_date, f.order_amount, f.order_id, r.region_id, r.province
+
+# --------------------------------------------------------------------------
+# 1) 日期表达
+# --------------------------------------------------------------------------
+date_expressions:
+
+  # ---- 自然月 ----
+  上个月:
+    expression: >
+      DATE_FORMAT(f.order_date, '%Y-%m') =
+      DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')
+    aliases: [上月, 上一个月份, 上个自然月, 上1月, 上月至今]
+    note: 自然月（1 号到最后一天）；若用户写"近 30 天"请用最近30天条目
+
+  本月:
+    expression: >
+      DATE_FORMAT(f.order_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+    aliases: [这个月, 当月, 当前月]
+    note: 自然月，截至当前时刻
+
+  下个月:
+    expression: >
+      DATE_FORMAT(f.order_date, '%Y-%m') =
+      DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')
+    aliases: [下月, 下个自然月]
+    note: 自然月；通常用于预售/未来单
+
+  # ---- 最近 N 天 ----
+  最近7天:
+    expression: "f.order_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+    aliases: [近7天, 过去一周, 一周内, 过去7天]
+    note: 含今天；"过去一周"在电商语境下默认 = 近 7 天
+
+  最近30天:
+    expression: "f.order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+    aliases: [近30天, 过去一个月, 30天内]
+    note: 含今天
+
+  最近90天:
+    expression: "f.order_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)"
+    aliases: [近90天, 过去一个季度, 一个季度内]
+    note: 含今天
+
+  # ---- 具体某一天 ----
+  今天:
+    expression: "DATE(f.order_date) = CURDATE()"
+    aliases: [今日, 当天]
+  昨天:
+    expression: "DATE(f.order_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)"
+    aliases: [昨日, 上一天]
+
+  # ---- 周/季度/年 ----
+  上周:
+    expression: >
+      YEARWEEK(f.order_date, 1) =
+      YEARWEEK(DATE_SUB(CURDATE(), INTERVAL 1 WEEK), 1)
+    aliases: [上个周, 上个星期, 上星期]
+    note: 周一到周日；模式 1 表示周一为一周第一天
+
+  本周:
+    expression: "YEARWEEK(f.order_date, 1) = YEARWEEK(CURDATE(), 1)"
+    aliases: [这个周, 本周至今]
+  上季度:
+    expression: >
+      QUARTER(f.order_date) =
+      QUARTER(DATE_SUB(CURDATE(), INTERVAL 1 QUARTER))
+      AND YEAR(f.order_date) =
+      YEAR(DATE_SUB(CURDATE(), INTERVAL 1 QUARTER))
+    aliases: [上个季度, 上季度至今]
+  本季度:
+    expression: >
+      QUARTER(f.order_date) = QUARTER(CURDATE())
+      AND YEAR(f.order_date) = YEAR(CURDATE())
+    aliases: [本季度至今, 当前季度, QTD]
+  年初至今:
+    expression: "YEAR(f.order_date) = YEAR(CURDATE())"
+    aliases: [今年, 本年, YTD, 今年至今]
+  去年:
+    expression: "YEAR(f.order_date) = YEAR(CURDATE()) - 1"
+    aliases: [去年全年, 上个自然年]
+
+# --------------------------------------------------------------------------
+# 2) 区域层级（大区 -> 省份）
+# --------------------------------------------------------------------------
+regions:
+
+  华东:
+    region_name: 华东大区
+    provinces: [上海, 江苏, 浙江]
+    aliases: [华东大区, 华东地区, 江浙沪]
+  华北:
+    region_name: 华北大区
+    provinces: [北京, 天津, 河北]
+    aliases: [华北大区, 华北地区, 京津冀]
+  华南:
+    region_name: 华南大区
+    provinces: [广东, 广西, 海南]
+    aliases: [华南大区, 华南地区]
+  华中:
+    region_name: 华中大区
+    provinces: [湖北, 湖南, 河南]
+    aliases: [华中大区, 华中地区]
+  西南:
+    region_name: 西南大区
+    provinces: [四川, 重庆, 云南, 贵州, 西藏]
+    aliases: [西南大区, 西南地区]
+  西北:
+    region_name: 西北大区
+    provinces: [陕西, 甘肃, 新疆, 青海, 宁夏]
+    aliases: [西北大区, 西北地区]
+  东北:
+    region_name: 东北大区
+    provinces: [辽宁, 吉林, 黑龙江]
+    aliases: [东北大区, 东北地区]
+
+# --------------------------------------------------------------------------
+# 3) 指标公式
+# --------------------------------------------------------------------------
+metric_formulas:
+
+  GMV:
+    sql: "SUM(f.order_amount)"
+    description: 商品交易总额；含未支付/已退款，按订单创建时间汇总
+    aliases: [销售额, 成交额, 交易额, 总流水, 营业额]
+
+  ORDER_CNT:
+    sql: "COUNT(DISTINCT f.order_id)"
+    description: 订单数（按订单 ID 去重）
+    aliases: [订单数, 订单量, 订单总数, 下单数, 订单笔数, ORDER_CNT]
+
+  AOV:
+    sql: "SUM(f.order_amount) / NULLIF(COUNT(DISTINCT f.order_id), 0)"
+    description: 客单价 = GMV / 订单数；用 NULLIF 防除零
+    aliases: [客单价, 平均订单金额, 均价, 件单价]
+
+  QTY:
+    sql: "SUM(f.order_qty)"
+    description: 销售件数；按 SKU 汇总
+    aliases: [件数, 销售件数, 总件数, 商品件数]
+
+  UV:
+    sql: "COUNT(DISTINCT f.customer_id)"
+    description: 独立用户数（购买人数）
+    aliases: [买家数, 独立访客, 独立用户, 购买用户数, 访客数, UV]
+
+  PAY_CNT:
+    sql: "COUNT(DISTINCT CASE WHEN f.is_paid = 1 THEN f.order_id END)"
+    description: 支付订单数（is_paid = 1）
+    aliases: [支付笔数, 已支付订单数]
+
+  PAY_RATE:
+    sql: "SUM(CASE WHEN f.is_paid = 1 THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0)"
+    description: 支付率 = 支付订单数 / 总订单数；用 *1.0 转 DECIMAL 防整除截断
+    aliases: [支付率, 支付转化率, 付款率]

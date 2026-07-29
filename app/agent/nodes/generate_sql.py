@@ -19,6 +19,7 @@ from langchain_core.runnables import RunnableConfig
 from app.agent.nodes._helpers import get_runtime, history_append, log_node, now_ms
 from app.agent.state import AgentState
 from app.core.metrics import LLMCallStat
+from app.prompt.glossary_injection import matched_categories, render_glossary_for_query
 
 _PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompt" / "generate_sql.prompt"
 _FALLBACK_PROMPT = (
@@ -207,7 +208,17 @@ async def generate_sql(state: AgentState, config: RunnableConfig | None = None) 
                     ensure_ascii=False,
                     indent=2,
                 ),
+                glossary_block=render_glossary_for_query(query),
             )
+            cats = matched_categories(query)
+            if cats:
+                log_node(
+                    "generate_sql",
+                    request_id,
+                    "glossary",
+                    categories=",".join(cats),
+                    block_chars=len(render_glossary_for_query(query)),
+                )
             try:
                 resp = await runtime.llm.ainvoke(prompt)
                 sql_text = parse_sql_response(resp.text).strip()
